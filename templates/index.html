@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Video Detection Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 YOLO Video Detection Dashboard</h1>
+            <p class="subtitle">Visualize and explore your video detection results</p>
+        </header>
+
+        <!-- Statistics Overview -->
+        <section class="stats-section">
+            <h2>📊 Overview Statistics</h2>
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalVideos">-</div>
+                    <div class="stat-label">Videos Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalFrames">-</div>
+                    <div class="stat-label">Total Frames</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDetections">-</div>
+                    <div class="stat-label">Total Detections</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDuration">-</div>
+                    <div class="stat-label">Total Duration</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Top Detected Objects Chart -->
+        <section class="chart-section">
+            <h2>🔍 Top Detected Objects</h2>
+            <div class="chart-container">
+                <canvas id="topObjectsChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Video List -->
+        <section class="videos-section">
+            <h2>🎬 Processed Videos</h2>
+            <div id="videosList" class="videos-grid">
+                <div class="loading">Loading videos...</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Video Detail Modal -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
+
+
+
+
+

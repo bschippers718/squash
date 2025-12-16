@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Card | VideoAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --accent: #00d4aa;
+            --accent-glow: rgba(0, 212, 170, 0.4);
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-elevated: #1a1a25;
+            --text-primary: #ffffff;
+            --text-secondary: #8b8b9e;
+            --border: #2a2a3a;
+            --player1: #00d4aa;
+            --player2: #6366f1;
+            --danger: #ff4757;
+            --warning: #ffa502;
+            --success: #00d4aa;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                var(--bg-dark);
+            z-index: -1;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 40px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #6366f1); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .logo-text { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .new-upload-btn {
+            background: var(--accent); color: var(--bg-dark);
+            padding: 10px 20px; border-radius: 8px;
+            text-decoration: none; font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .new-upload-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px var(--accent-glow); }
+        
+        /* Score Card Header */
+        .scorecard-header {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .scorecard-title { font-size: 2.2rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .scorecard-subtitle { color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 20px; }
+        
+        .sport-icon { 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center;
+            color: var(--accent);
+        }
+        .sport-icon svg { 
+            width: 48px; 
+            height: 48px; 
+        }
+        
+        .match-score { display: flex; justify-content: center; align-items: center; gap: 40px; margin: 25px 0; }
+        .score-player { text-align: center; }
+        .score-player-name { font-size: 1.2rem; font-weight: 600; margin-bottom: 10px; }
+        .score-player-games { font-size: 3.5rem; font-weight: 700; }
+        .score-player.p1 .score-player-games { color: var(--player1); }
+        .score-player.p2 .score-player-games { color: var(--player2); }
+        .score-divider { font-size: 2.5rem; color: var(--text-secondary); }
+        
+        .match-winner {
+            display: inline-block;
+            padding: 10px 30px;
+            background: linear-gradient(135deg, var(--accent), #6366f1);
+            color: var(--bg-dark);
+            font-weight: 700;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            margin-top: 15px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 212, 170, 0.1);
+            color: var(--success);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        /* Video Section */
+        .video-section { margin-bottom: 30px; }
+        .video-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+        }
+        .video-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 15px;
+        }
+        .video-title { font-size: 1.3rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .video-player { width: 100%; max-height: 500px; border-radius: 12px; background: var(--bg-dark); }
+        
+        /* Player Identification */
+        .player-setup {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .player-setup-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .player-setup-title { font-size: 1.2rem; font-weight: 600; margin: 0; }
+        .player-setup-subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px; }
+        
+        .player-id-container { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; align-items: start; }
+        @media (max-width: 900px) { .player-id-container { grid-template-columns: 1fr; } }
+        
+        .player-id-frame { border-radius: 12px; overflow: hidden; border: 2px solid var(--border); }
+        .player-id-frame img { width: 100%; display: block; }
+        .player-id-frame-placeholder { background: var(--bg-elevated); padding: 60px 40px; text-align: center; color: var(--text-secondary); }
+        .player-id-frame-caption { background: var(--bg-elevated); padding: 10px 15px; font-size: 0.85rem; color: var(--text-secondary); text-align: center; }
+        
+        .player-inputs { display: flex; flex-direction: column; gap: 20px; }
+        .player-input-group { display: flex; flex-direction: column; gap: 8px; }
+        .player-input-label { font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        
+        .player-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .player-badge.left { background: rgba(0, 212, 170, 0.2); color: var(--player1); border: 1px solid var(--player1); }
+        .player-badge.right { background: rgba(255, 100, 200, 0.2); color: #ff64c8; border: 1px solid #ff64c8; }
+        
+        /* Player name highlights in summary text */
+        .highlight-p1 { color: var(--player1); font-weight: 600; }
+        .highlight-p2 { color: var(--player2); font-weight: 600; }
+        
+        .player-input {
+            background: var(--bg-elevated); border: 2px solid var(--border); border-radius: 10px;
+            padding: 14px 18px; color: var(--text-primary); font-size: 1.1rem;
+            font-family: inherit; transition: all 0.3s ease;
+        }
+        .player-input:focus { outline: none; border-color: var(--accent); background: var(--bg-card); }
+        .player-input::placeholder { color: var(--text-secondary); }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 20px; margin-bottom: 30px;
+        }
+        @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        
+        .stat-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 25px; text-align: center;
+        }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent); margin-bottom: 5px; }
+        .stat-label { color: var(--text-secondary); font-size: 0.85rem; }
+        
+        /* Section Cards */
+        .section-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 20px; padding: 30px; margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 1.4rem; font-weight: 600; margin-bottom: 25px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        
+        /* Match Summary */
+        .summary-card {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 212, 170, 0.05) 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        .summary-header { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
+        .summary-header h3 { font-size: 1.2rem; font-weight: 600; margin: 0; }
+        .summary-icon { font-size: 1.5rem; }
+        .summary-content { color: var(--text-secondary); font-size: 1rem; line-height: 1.7; }
+        .summary-content strong { color: var(--text-primary); }
+
+        /* Metric Cards */
+        .metric-comparison { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
+        @media (max-width: 900px) { .metric-comparison { grid-template-columns: 1fr; } }
+        
+        .metric-card { background: var(--bg-elevated); border-radius: 16px; padding: 25px; }
+        .metric-card.full-width { grid-column: span 2; }
+        @media (max-width: 900px) { .metric-card.full-width { grid-column: span 1; } }
+        
+        .metric-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .metric-name { font-weight: 600; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .metric-desc { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px; }
+        .metric-winner { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .metric-winner.p1 { background: rgba(0, 212, 170, 0.2); color: var(--player1); }
+        .metric-winner.p2 { background: rgba(99, 102, 241, 0.2); color: var(--player2); }
+        .metric-winner.tie { background: rgba(139, 139, 158, 0.2); color: var(--text-secondary); }
+        
+        .metric-bars { display: flex; gap: 15px; align-items: center; }
+        .metric-player { flex: 1; display: flex; flex-direction: column; }
+        .metric-player-label { font-size: 0.85rem; margin-bottom: 8px; }
+        .metric-player-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
+        .metric-player.p1 .metric-player-value { color: var(--player1); }
+        .metric-player.p2 .metric-player-value { color: var(--player2); }
+        
+        .metric-bar-container { height: 8px; background: var(--bg-dark); border-radius: 4px; overflow: hidden; }
+        .metric-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+        .metric-bar.p1 { background: var(--player1); }
+        .metric-bar.p2 { background: var(--player2); }
+
+        .analysis-text {
+            background: var(--bg-dark); border-radius: 8px; padding: 12px 15px;
+            color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5;
+            border-left: 3px solid var(--accent); margin-top: 15px;
+        }
+        
+        /* Chat Section */
+        .chat-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; overflow: hidden; margin-bottom: 30px;
+        }
+        .chat-header {
+            padding: 20px 25px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .chat-header h3 { font-size: 1.2rem; }
+        .chat-suggestions { padding: 10px 20px 15px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .suggestion-chip {
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: 20px; padding: 6px 14px; font-size: 0.85rem;
+            color: var(--text-secondary); cursor: pointer; transition: all 0.3s ease;
+        }
+        .suggestion-chip:hover { border-color: var(--accent); color: var(--accent); }
+        .chat-messages { height: 300px; overflow-y: auto; padding: 20px; }
+        .chat-message { margin-bottom: 15px; max-width: 85%; }
+        .chat-message.user { margin-left: auto; }
+        .chat-message.assistant { margin-right: auto; }
+        .message-bubble { padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; }
+        .user .message-bubble { background: var(--accent); color: var(--bg-dark); border-bottom-right-radius: 4px; }
+        .assistant .message-bubble { background: var(--bg-elevated); color: var(--text-primary); border-bottom-left-radius: 4px; }
+        .chat-input-area { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+        .chat-input {
+            flex: 1; background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: 8px; padding: 12px 15px; color: var(--text-primary);
+            font-size: 0.95rem; font-family: inherit;
+        }
+        .chat-input:focus { outline: none; border-color: var(--accent); }
+        .chat-send-btn {
+            background: var(--accent); color: var(--bg-dark); border: none;
+            border-radius: 8px; padding: 12px 20px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        .chat-send-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px var(--accent-glow); }
+        
+        /* Downloads */
+        .downloads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .download-item {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--bg-elevated); border-radius: 10px; padding: 12px 15px;
+            text-decoration: none; color: var(--text-primary); transition: all 0.3s ease;
+        }
+        .download-item:hover { background: rgba(0, 212, 170, 0.1); transform: translateX(3px); }
+        .download-icon { font-size: 24px; }
+        .download-info { flex: 1; }
+        .download-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 2px; }
+        .download-desc { color: var(--text-secondary); font-size: 0.8rem; }
+        .download-arrow { color: var(--accent); font-size: 18px; }
+
+        footer {
+            text-align: center; padding: 30px;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .loading {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 400px; gap: 20px;
+        }
+        .loading-spinner {
+            width: 50px; height: 50px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+        <header>
+            <a href="/" class="logo">
+                <div class="logo-icon">🎯</div>
+            <div class="logo-text">VideoAI</div>
+            </a>
+            <a href="/" class="new-upload-btn">+ New Analysis</a>
+        </header>
+
+    <div class="container">
+        <div id="content">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading score card...</p>
+            </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with love by Ben Schippers ❤️</p>
+        </footer>
+
+    <script>
+        const jobId = '{{ job_id }}';
+        let analyticsData = null;
+        
+        // Load saved player names from localStorage, or use defaults
+        let playerNames = JSON.parse(localStorage.getItem(`playerNames_${jobId}`)) || { player1: 'Player 1', player2: 'Player 2' };
+        
+        // Sport-specific labels
+        const squashBallSvg = `<svg viewBox="0 0 493.415 493.415" style="width: 1em; height: 1em; vertical-align: middle;"><circle cx="246.708" cy="246.703" r="246.703" fill="#1a1a25"/><circle cx="291.68" cy="145.369" r="22.491" fill="#ffd700"/><circle cx="269.199" cy="236.681" r="22.491" fill="#ffd700"/></svg>`;
+        
+        const sportLabels = {
+            squash: {
+                name: 'Squash',
+                icon: squashBallSvg,
+                t_dominance: 'T-Dominance',
+                t_desc: 'Percentage of time each player controls the center "T" position — the most dominant court position.',
+                scramble: 'Scramble Score',
+                scramble_desc: 'Average distance from the T — lower is better. High scramble means a player is being pushed around.',
+                running: 'Running Score',
+                running_desc: 'Total distance covered during the match — shows who is working harder physically.',
+                attack: 'Attack Score',
+                attack_desc: 'Number of aggressive, high-velocity shots that put the opponent under pressure.',
+                rail: 'Tight Rails',
+                rail_desc: 'How close shots are to the side wall — tighter rails are harder to retrieve.'
+            },
+            padel: {
+                name: 'Padel',
+                icon: '🏸',
+                t_dominance: 'Net Control',
+                t_desc: 'Percentage of time each player controls the net position — the most dominant court position in padel.',
+                scramble: 'Defense Score',
+                scramble_desc: 'Average distance from net — lower means better positioning.',
+                running: 'Movement Score',
+                running_desc: 'Total distance covered during the match.',
+                attack: 'Volley Score',
+                attack_desc: 'Number of aggressive volleys and smashes.',
+                rail: 'Wall Shots',
+                rail_desc: 'Effectiveness of shots using the walls.'
+            }
+        };
+        
+        // Utility functions
+        function formatTime(seconds) {
+            if (!seconds || seconds <= 0) return '0m 0s';
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}m ${s}s`;
+        }
+        
+        function pxToFt(px) {
+            const ft = (px || 0) / 30;
+            return ft.toFixed(1);
+        }
+        
+        function pxToMiles(px) {
+            const ft = (px || 0) / 30;
+            return (ft / 5280).toFixed(2);
+        }
+        
+        function getWinnerClass(v1, v2, lowerBetter = false) {
+            if (v1 === v2 || (!v1 && !v2)) return 'tie';
+            if (lowerBetter) return v1 < v2 ? 'p1' : 'p2';
+            return v1 > v2 ? 'p1' : 'p2';
+        }
+        
+        function getWinnerName(v1, v2, lowerBetter = false) {
+            if (v1 === v2 || (!v1 && !v2)) return 'Tie';
+            if (lowerBetter) return v1 < v2 ? playerNames.player1 : playerNames.player2;
+            return v1 > v2 ? playerNames.player1 : playerNames.player2;
+        }
+        
+        // Generate comprehensive match summary
+        function generateMatchSummary(p1, p2, analysis, names, labels) {
+            const p1TDom = p1.avg_t_dominance ?? p1.t_dominance ?? 0;
+            const p2TDom = p2.avg_t_dominance ?? p2.t_dominance ?? 0;
+            const tDomDiff = Math.abs(p1TDom - p2TDom);
+            const tDomWinner = p1TDom > p2TDom ? names.player1 : names.player2;
+            const tDomLoser = p1TDom > p2TDom ? names.player2 : names.player1;
+            const winnerTDom = Math.max(p1TDom, p2TDom);
+            const loserTDom = Math.min(p1TDom, p2TDom);
+            
+            // Get scramble data (convert from pixels to feet)
+            const p1ScramblePx = p1.avg_scramble_score ?? p1.scramble_score ?? 0;
+            const p2ScramblePx = p2.avg_scramble_score ?? p2.scramble_score ?? 0;
+            const p1Scramble = p1ScramblePx / 30;  // Convert to feet
+            const p2Scramble = p2ScramblePx / 30;
+            const scrambleWinner = p1Scramble < p2Scramble ? names.player1 : names.player2;
+            const scrambleLoser = p1Scramble < p2Scramble ? names.player2 : names.player1;
+            const scrambleWinnerVal = Math.min(p1Scramble, p2Scramble);
+            const scrambleLoserVal = Math.max(p1Scramble, p2Scramble);
+            const scrambleRatio = scrambleLoserVal > 0 ? (scrambleLoserVal / Math.max(scrambleWinnerVal, 0.1)).toFixed(1) : 0;
+            
+            // Get running data (convert from pixels to feet)
+            const p1RunningPx = p1.avg_running_score ?? p1.running_score ?? 0;
+            const p2RunningPx = p2.avg_running_score ?? p2.running_score ?? 0;
+            const p1Running = p1RunningPx / 30;  // Convert to feet
+            const p2Running = p2RunningPx / 30;
+            const runningMore = p1Running > p2Running ? names.player1 : names.player2;
+            const runningLess = p1Running > p2Running ? names.player2 : names.player1;
+            const runningMoreVal = Math.max(p1Running, p2Running);
+            const runningLessVal = Math.min(p1Running, p2Running);
+            const runningRatio = runningLessVal > 0 ? ((runningMoreVal / runningLessVal - 1) * 100).toFixed(0) : 0;
+            
+            // Get attack data
+            const p1Attacks = p1.total_attack_score ?? p1.attack_score ?? 0;
+            const p2Attacks = p2.total_attack_score ?? p2.attack_score ?? 0;
+            const totalAttacks = p1Attacks + p2Attacks;
+            const attackWinner = p1Attacks > p2Attacks ? names.player1 : names.player2;
+            const attackLoser = p1Attacks > p2Attacks ? names.player2 : names.player1;
+            const attackWinnerVal = Math.max(p1Attacks, p2Attacks);
+            const attackLoserVal = Math.min(p1Attacks, p2Attacks);
+            const attackPercent = totalAttacks > 0 ? ((attackWinnerVal / totalAttacks) * 100).toFixed(0) : 50;
+            
+            // Get rail data - convert pixels to feet (using same 30px = 1ft conversion)
+            // Support both single game (tight_rail_count) and combined match (total_tight_rails) field names
+            const p1RailPx = p1.avg_rail_distance ?? -1;
+            const p2RailPx = p2.avg_rail_distance ?? -1;
+            const p1Rail = p1RailPx > 0 ? p1RailPx / 30 : -1;  // Convert pixels to feet
+            const p2Rail = p2RailPx > 0 ? p2RailPx / 30 : -1;
+            const p1TightRails = p1.tight_rail_count ?? p1.total_tight_rails ?? 0;
+            const p2TightRails = p2.tight_rail_count ?? p2.total_tight_rails ?? 0;
+            
+            // Calculate attack efficiency (attacks per distance)
+            const p1Efficiency = p1Running > 0 ? (p1Attacks / p1Running * 1000) : 0;
+            const p2Efficiency = p2Running > 0 ? (p2Attacks / p2Running * 1000) : 0;
+            const efficiencyWinner = p1Efficiency > p2Efficiency ? names.player1 : names.player2;
+            const efficiencyRatio = Math.max(p1Efficiency, p2Efficiency) / Math.max(Math.min(p1Efficiency, p2Efficiency), 0.001);
+            
+            let summary = '';
+            
+            // Opening paragraph - overall assessment
+            if (tDomDiff < 5) {
+                summary = `<span class="highlight-p1">${names.player1}</span> and <span class="highlight-p2">${names.player2}</span> played an <strong>evenly matched tactical battle</strong> — the kind of game that often comes down to mental fortitude in crucial moments. The data reveals a competitive contest with both players showing periods of dominance.`;
+            } else if (tDomDiff < 15) {
+                summary = `<span class="highlight-p1">${tDomWinner}</span> held a <strong>tactical advantage</strong> in this match, though <span class="highlight-p2">${tDomLoser}</span> showed flashes of competitive play. The data reveals a classic "controller vs. retriever" dynamic, with one player dictating play from the T while the other was forced into a more reactive posture.`;
+            } else {
+                summary = `<span class="highlight-p1">${tDomWinner}</span> held a <strong>clear tactical advantage</strong> in this match, though <span class="highlight-p2">${tDomLoser}</span> showed flashes of competitive play. The data reveals a classic "controller vs. retriever" dynamic, with one player dictating play from the T while the other was forced into a reactive, defensive posture.`;
+            }
+            
+            // T-Dominance section
+            summary += `<br><br><strong>🎯 Court Control & The T:</strong> <span class="highlight-p1">${tDomWinner}</span> controlled the T <strong>${winnerTDom.toFixed(1)}%</strong> of the time compared to ${loserTDom.toFixed(1)}% for <span class="highlight-p2">${tDomLoser}</span>. `;
+            
+            if (tDomDiff >= 20) {
+                summary += `This <strong>${tDomDiff.toFixed(0)} percentage point gap</strong> is significant — <span class="highlight-p1">${tDomWinner}</span> was able to volley early, cut off angles, and force <span class="highlight-p2">${tDomLoser}</span> into the back corners repeatedly. When a player owns the T this decisively, they're essentially playing "downhill" — making their opponent do all the hard work.`;
+            } else if (tDomDiff >= 10) {
+                summary += `This <strong>${tDomDiff.toFixed(0)} percentage point gap</strong> shows clear court control. <span class="highlight-p1">${tDomWinner}</span> was consistently in a better position to dictate play.`;
+            } else {
+                summary += `The T was closely contested, with neither player establishing overwhelming positional dominance.`;
+            }
+            
+            // Scramble Analysis section
+            if (p1Scramble > 0 && p2Scramble > 0) {
+                summary += `<br><br><strong>🏃 Movement & Scramble Analysis:</strong> <span class="highlight-p1">${scrambleWinner}</span> averaged <strong>${scrambleWinnerVal.toFixed(1)} ft</strong> from the T, while <span class="highlight-p2">${scrambleLoser}</span> averaged <strong>${scrambleLoserVal.toFixed(1)} ft</strong>. `;
+                
+                if (scrambleRatio >= 1.5) {
+                    summary += `This <strong>${scrambleRatio}x difference</strong> tells a clear story: <span class="highlight-p2">${scrambleLoser}</span> was being systematically pushed into the corners and forced to scramble. High scramble scores typically indicate a player is under sustained pressure — they're reacting rather than dictating.`;
+                } else if (scrambleRatio >= 1.2) {
+                    summary += `<span class="highlight-p2">${scrambleLoser}</span> was pushed further from the T more often, indicating they were under more pressure.`;
+                } else {
+                    summary += `Both players showed similar movement patterns around the T.`;
+                }
+            }
+            
+            // Running/Physical Workload section
+            if (p1Running > 0 && p2Running > 0) {
+                summary += `<br><br><strong>💪 Physical Workload:</strong> <span class="highlight-p1">${runningLess}</span> covered approximately <strong>${runningLessVal.toFixed(1)} ft</strong> while <span class="highlight-p2">${runningMore}</span> covered <strong>${runningMoreVal.toFixed(1)} ft</strong>. `;
+                
+                if (runningRatio >= 40) {
+                    summary += `<span class="highlight-p2">${runningMore}</span> ran <strong>${runningRatio}% more</strong> than their opponent — a significant physical disparity. In a long match, this kind of workload imbalance often manifests as fatigue in later games. <em>Notably, the player running more was likely also scrambling more — they were being worked hard in every dimension.</em>`;
+                } else if (runningRatio >= 20) {
+                    summary += `<span class="highlight-p2">${runningMore}</span> ran <strong>${runningRatio}% more</strong>, suggesting they were doing more of the chasing.`;
+                } else {
+                    summary += `Both players covered similar distances, indicating an evenly physical contest.`;
+                }
+            }
+            
+            // Attack Analysis section
+            if (totalAttacks > 0) {
+                summary += `<br><br><strong>⚡ Attacking Play:</strong> <span class="highlight-p1">${attackWinner}</span> generated <strong>${attackWinnerVal}</strong> attacking shots while <span class="highlight-p2">${attackLoser}</span> produced <strong>${attackLoserVal}</strong>. <span class="highlight-p1">${attackWinner}</span> accounted for <strong>${attackPercent}%</strong> of all attacking play.`;
+                
+                // Attack efficiency insight
+                if (efficiencyRatio >= 1.5 && p1Running > 0 && p2Running > 0) {
+                    summary += `<br><br><em>📊 Hidden Insight:</em> When we look at <strong>attacking efficiency</strong> (attacks per distance covered), <span class="highlight-p1">${efficiencyWinner}</span> was <strong>${efficiencyRatio.toFixed(1)}x more efficient</strong>. This means <span class="highlight-p1">${efficiencyWinner}</span> generated more offensive opportunities while expending less energy — a sign of superior shot selection and court positioning.`;
+                }
+            }
+            
+            // Rail Analysis section - p1Rail and p2Rail are now in feet
+            if (p1Rail > 0 && p2Rail > 0) {
+                const railWinner = p1Rail < p2Rail ? names.player1 : names.player2;
+                const railLoser = p1Rail < p2Rail ? names.player2 : names.player1;
+                const railWinnerVal = Math.min(p1Rail, p2Rail);
+                const railLoserVal = Math.max(p1Rail, p2Rail);
+                const railWinnerTight = p1Rail < p2Rail ? p1TightRails : p2TightRails;
+                const railLoserTight = p1Rail < p2Rail ? p2TightRails : p1TightRails;
+                
+                summary += `<br><br><strong>🧱 Length Game & Rail Quality:</strong> <span class="highlight-p1">${railWinner}</span>'s average ball position was <strong>${railWinnerVal.toFixed(1)} ft</strong> from the wall (${railWinnerTight} tight shots), while <span class="highlight-p2">${railLoser}</span> averaged <strong>${railLoserVal.toFixed(1)} ft</strong> (${railLoserTight} tight shots). `;
+                summary += `<span class="highlight-p1">${railWinner}</span> kept the ball closer to the wall more consistently. Tight rails are the <strong>foundation of squash</strong> — they limit your opponent's options, prevent attacking returns, and create weak balls that can be punished.`;
+            } else if (p1Rail > 0 || p2Rail > 0) {
+                const hasRailData = p1Rail > 0 ? names.player1 : names.player2;
+                const noRailData = p1Rail > 0 ? names.player2 : names.player1;
+                summary += `<br><br><strong>🧱 Length Game & Rail Quality:</strong> Only <span class="highlight-p1">${hasRailData}</span> has sufficient ball tracking data for rail analysis. <span class="highlight-p2">${noRailData}</span>'s rail tightness could not be measured.`;
+            }
+            
+            // Key Takeaways
+            summary += `<br><br><strong>💡 Key Takeaways:</strong>`;
+            summary += `<br>• <strong>For <span class="highlight-p1">${tDomWinner}</span>:</strong> `;
+            if (tDomDiff >= 15) {
+                summary += `Strong performance across the board. Maintain this level and look for small margins to exploit.`;
+            } else if (tDomDiff >= 5) {
+                summary += `Good court control, but there's room to be more dominant. Focus on consistent length to maintain T position.`;
+            } else {
+                summary += `Evenly matched — focus on winning the crucial points and maintaining mental composure.`;
+            }
+            
+            summary += `<br>• <strong>For <span class="highlight-p2">${tDomLoser}</span>:</strong> `;
+            if (tDomDiff >= 15) {
+                summary += `The T is everything in squash — prioritize getting there after every shot, even if it means sacrificing some shot power. Work on shot selection that keeps you closer to the T.`;
+            } else if (tDomDiff >= 5) {
+                summary += `Focus on reclaiming the T more consistently. Consider varying pace and using more lobs to give yourself time to recover position.`;
+            } else {
+                summary += `Close match — small improvements in shot quality and movement could tip the balance in your favor.`;
+            }
+            
+            return summary;
+        }
+        
+        // Load and render data
+        async function loadData() {
+            try {
+                const response = await fetch(`/api/results/${jobId}`);
+                if (!response.ok) throw new Error('Failed to load data');
+                
+                const data = await response.json();
+                analyticsData = data;
+                renderScoreCard(data);
+                
+                // Apply any saved player names from localStorage
+                // This updates all name displays and regenerates the match summary
+                updatePlayerNames();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('content').innerHTML = `
+                    <div class="loading">
+                        <p style="color: var(--danger);">Error loading score card. Please try again.</p>
+                        <a href="/" class="new-upload-btn">Back to Home</a>
+                    </div>`;
+            }
+        }
+        
+        function renderScoreCard(data) {
+            const jobData = data.job || {};
+            const result = data.result || {};
+            const analytics = result.squash_analytics || result.analytics || {};
+            const analysis = analytics.analysis || {};
+            const p1 = analytics.player1 || {};
+            const p2 = analytics.player2 || {};
+            const matchInfo = analytics.match_info || {};
+            
+            // Detect sport
+            const sport = jobData.sport || 'squash';
+            const labels = sportLabels[sport] || sportLabels.squash;
+            
+            // Determine if this is a multi-game match
+            const isMultiGame = jobId.startsWith('match_') || (analytics.games && analytics.games.length > 1);
+            const numGames = analytics.num_games || (analytics.games?.length) || 1;
+            
+            // Get video name - ensure it doesn't include job_id prefix
+            let videoName = result?.video_name || jobData.filename || jobId;
+            // Remove job_id prefix if present (e.g., "088f45fb_IMG_1732_2" -> "IMG_1732_2")
+            if (videoName.startsWith(jobId + '_')) {
+                videoName = videoName.substring(jobId.length + 1);
+            }
+            
+            // Get metrics
+            const p1TDom = p1.avg_t_dominance ?? p1.t_dominance ?? 0;
+            const p2TDom = p2.avg_t_dominance ?? p2.t_dominance ?? 0;
+            const p1Scramble = p1.avg_scramble_score ?? p1.scramble_score ?? 0;
+            const p2Scramble = p2.avg_scramble_score ?? p2.scramble_score ?? 0;
+            const p1Running = p1.total_running_score ?? p1.running_score ?? 0;
+            const p2Running = p2.total_running_score ?? p2.running_score ?? 0;
+            const p1Attacks = p1.total_attack_score ?? p1.attack_score ?? 0;
+            const p2Attacks = p2.total_attack_score ?? p2.attack_score ?? 0;
+            // Rail data - convert pixels to feet (same 30px = 1ft as other metrics)
+            const p1RailPx = p1.avg_rail_distance ?? 0;
+            const p2RailPx = p2.avg_rail_distance ?? 0;
+            const p1Rail = p1RailPx > 0 ? p1RailPx / 30 : 0;
+            const p2Rail = p2RailPx > 0 ? p2RailPx / 30 : 0;
+            // Support both field names for tight rail count
+            const p1TightRails = p1.tight_rail_count ?? p1.total_tight_rails ?? 0;
+            const p2TightRails = p2.tight_rail_count ?? p2.total_tight_rails ?? 0;
+            
+            // Calculate percentages for bars
+            const tDomTotal = p1TDom + p2TDom;
+            const p1TDomPct = tDomTotal > 0 ? (p1TDom / tDomTotal * 100).toFixed(0) : 50;
+            const p2TDomPct = tDomTotal > 0 ? (p2TDom / tDomTotal * 100).toFixed(0) : 50;
+            
+            const attackTotal = p1Attacks + p2Attacks;
+            const p1AttackPct = attackTotal > 0 ? (p1Attacks / attackTotal * 100).toFixed(0) : 50;
+            const p2AttackPct = attackTotal > 0 ? (p2Attacks / attackTotal * 100).toFixed(0) : 50;
+            
+            const runTotal = p1Running + p2Running;
+            const p1RunPct = runTotal > 0 ? (p1Running / runTotal * 100).toFixed(0) : 50;
+            const p2RunPct = runTotal > 0 ? (p2Running / runTotal * 100).toFixed(0) : 50;
+            
+            const scrambleMax = Math.max(p1Scramble, p2Scramble);
+            const p1ScramblePct = scrambleMax > 0 ? (p1Scramble / scrambleMax * 100).toFixed(0) : 50;
+            const p2ScramblePct = scrambleMax > 0 ? (p2Scramble / scrambleMax * 100).toFixed(0) : 50;
+            
+            // Get duration
+            const duration = matchInfo.total_duration_seconds || matchInfo.duration_seconds || 0;
+            const durationFormatted = matchInfo.total_duration_formatted || formatTime(duration);
+            
+            // Get winner info
+            const matchResult = analytics.match_result || {};
+            const p1Games = matchResult.player1_games || p1.games_won || (p1TDom > p2TDom ? 1 : 0);
+            const p2Games = matchResult.player2_games || p2.games_won || (p2TDom > p1TDom ? 1 : 0);
+            const winner = matchResult.winner || (p1TDom > p2TDom ? 'Player 1' : p2TDom > p1TDom ? 'Player 2' : 'Tie');
+            const winnerName = winner === 'Player 1' ? playerNames.player1 : winner === 'Player 2' ? playerNames.player2 : 'Tie';
+            
+            // Build player frame HTML
+            let playerFrameHtml = '';
+            if (isMultiGame) {
+                const gameJobs = analytics.game_jobs || [];
+                const frameSources = [];
+                gameJobs.forEach((gj, i) => {
+                    if (gj.job_id) {
+                        let vn = (gj.video_name || gj.filename || '').replace(/\.[^/.]+$/, '');
+                        // Remove job_id prefix if present to avoid doubling (e.g., "41f20c93_GH010075" -> "GH010075")
+                        if (vn.startsWith(gj.job_id + '_')) {
+                            vn = vn.substring(gj.job_id.length + 1);
+                        }
+                        // Try the full pattern first (job_id_videoname_players.jpg)
+                        if (vn) frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${gj.job_id}_${vn}_players.jpg`, label: vn || `Game ${i+1}` });
+                        // Also try without video name as fallback
+                        frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${gj.job_id}_players.jpg`, label: `Game ${i+1}` });
+                    }
+                });
+                
+                if (frameSources.length > 0) {
+                    playerFrameHtml = `
+                        <img id="playerFrameImg" src="${frameSources[0].path}" alt="Player identification frame" 
+                             onerror="tryNextPlayerFrame(${JSON.stringify(frameSources).replace(/"/g, '&quot;')}, 0)">
+                        <div class="player-id-frame-caption" id="playerFrameCaption">Frame from ${frameSources[0].label}</div>`;
+                } else {
+                    playerFrameHtml = `<div class="player-id-frame-placeholder">Player frame not available</div>`;
+                }
+            } else {
+                // Try multiple filename patterns as fallbacks
+                const framePaths = [
+                    `/results/${jobId}/files/${jobId}_${videoName}_players.jpg`,
+                    `/results/${jobId}/files/${videoName}_players.jpg`,
+                    `/results/${jobId}/files/${jobData.filename || jobId}_players.jpg`
+                ];
+                
+                playerFrameHtml = `
+                    <img id="playerFrameImg" src="${framePaths[0]}" alt="Player identification frame" 
+                         onerror="tryNextPlayerFramePath(${JSON.stringify(framePaths).replace(/"/g, '&quot;')}, 0)">
+                    <div class="player-id-frame-caption">Frame showing both players</div>`;
+            }
+            
+            // Build video HTML (only for single games)
+            let videoHtml = '';
+            if (!isMultiGame) {
+                videoHtml = `
+                <div class="video-section">
+                    <div class="video-card">
+                        <div class="video-header">
+                            <div class="video-title">🎬 Match Video</div>
+                        </div>
+                        <video class="video-player" controls>
+                            <source src="/results/${jobId}/files/${jobId}_${videoName}_annotated.mp4" type="video/mp4">
+                            Your browser does not support video playback.
+                        </video>
+                    </div>
+                    </div>`;
+            }
+            
+            // Build downloads HTML
+            let downloadsHtml = '';
+            if (isMultiGame) {
+                const gameJobs = analytics.game_jobs || [];
+                const gameDownloads = gameJobs.map((gj, i) => {
+                    const gameName = gj.video_name || gj.filename || `Game ${i+1}`;
+                    return `
+                        <a href="/results/${gj.job_id}" class="download-item">
+                            <span class="download-icon">🎮</span>
+                            <div class="download-info">
+                                <div class="download-name">Game ${i+1} Details</div>
+                                <div class="download-desc">${gameName}</div>
+                </div>
+                            <span class="download-arrow">→</span>
+                        </a>`;
+                }).join('');
+                
+                downloadsHtml = `
+                    <div class="section-card">
+                        <h2 class="section-title">📥 Downloads & Game Details</h2>
+                        <div class="downloads-grid">
+                            <a href="/results/${jobId}/files/combined_match_analytics.json" class="download-item" download>
+                                <span class="download-icon">📊</span>
+                                <div class="download-info">
+                                    <div class="download-name">Combined Match Analytics</div>
+                                    <div class="download-desc">Full match JSON data</div>
+                                </div>
+                                <span class="download-arrow">↓</span>
+                            </a>
+                            ${gameDownloads}
+                        </div>
+                    </div>`;
+            } else {
+                downloadsHtml = `
+                    <div class="section-card">
+                        <h2 class="section-title">📥 Download Results</h2>
+                        <div class="downloads-grid">
+                            <a href="/results/${jobId}/files/${jobId}_${videoName}_annotated.mp4" class="download-item" download>
+                                <span class="download-icon">🎥</span>
+                                <div class="download-info">
+                                    <div class="download-name">Annotated Video</div>
+                                    <div class="download-desc">With detection overlays</div>
+                                </div>
+                                <span class="download-arrow">↓</span>
+                            </a>
+                            <a href="/results/${jobId}/files/${jobId}_${videoName}_squash_analytics.json" class="download-item" download>
+                                <span class="download-icon">📊</span>
+                                <div class="download-info">
+                                    <div class="download-name">${labels.name} Analytics</div>
+                                    <div class="download-desc">Complete analysis JSON</div>
+                                </div>
+                                <span class="download-arrow">↓</span>
+                            </a>
+                            <a href="/results/${jobId}/files/${jobId}_${videoName}_detection_data.json" class="download-item" download>
+                                <span class="download-icon">📄</span>
+                                <div class="download-info">
+                                    <div class="download-name">Detection Data</div>
+                                    <div class="download-desc">Frame-by-frame data</div>
+                                </div>
+                                <span class="download-arrow">↓</span>
+                            </a>
+                            <a href="/results/${jobId}/files/${jobId}_${videoName}_detection_summary.txt" class="download-item" download>
+                                <span class="download-icon">📝</span>
+                                <div class="download-info">
+                                    <div class="download-name">Text Summary</div>
+                                    <div class="download-desc">Human-readable</div>
+                                </div>
+                                <span class="download-arrow">↓</span>
+                            </a>
+                        </div>
+                    </div>`;
+            }
+            
+            // Generate match summary - ALWAYS use the detailed JS summary
+            // (ignore the short server-generated summary in analysis.match_summary)
+            const summaryText = generateMatchSummary(p1, p2, analysis, playerNames, labels);
+            
+            // Render the unified Score Card
+            document.getElementById('content').innerHTML = `
+                <!-- Score Card Header -->
+                <div class="scorecard-header">
+                    <h1 class="scorecard-title"><span class="sport-icon">${labels.icon}</span> ${labels.name} Score Card</h1>
+                    <p class="scorecard-subtitle">${isMultiGame ? `${numGames}-Game Match` : videoName} • ${durationFormatted}</p>
+                </div>
+                
+                <!-- Video (single game only) -->
+                ${videoHtml}
+                
+                <!-- Player Identification -->
+                <div class="player-setup">
+                    <div class="player-setup-header">
+                        <span style="font-size: 1.5rem;">👤</span>
+                        <h3 class="player-setup-title">Identify Players</h3>
+                    </div>
+                    <p class="player-setup-subtitle">Use the frame below to identify each player. The player boxed in <strong style="color: #00ff64;">GREEN</strong> is on the LEFT, and the player boxed in <strong style="color: #ff64c8;">PINK</strong> is on the RIGHT.</p>
+                    
+                    <div class="player-id-container">
+                        <div class="player-id-frame">
+                            ${playerFrameHtml}
+                        </div>
+                        <div class="player-inputs">
+                            <div class="player-input-group">
+                                <label class="player-input-label">
+                                    <span class="player-badge left">LEFT</span>
+                                    Who is this player?
+                                </label>
+                                <input type="text" class="player-input" id="player1Input" placeholder="Enter name (e.g., Mohamed)" value="${playerNames.player1}" oninput="updatePlayerNames()">
+                            </div>
+                            <div class="player-input-group">
+                                <label class="player-input-label">
+                                    <span class="player-badge right">RIGHT</span>
+                                    Who is this player?
+                                </label>
+                                <input type="text" class="player-input" id="player2Input" placeholder="Enter name (e.g., Ali)" value="${playerNames.player2}" oninput="updatePlayerNames()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Match Summary (ALWAYS SHOWN) -->
+                    <div class="summary-card">
+                        <div class="summary-header">
+                            <span class="summary-icon">📝</span>
+                            <h3>Match Summary</h3>
+                        </div>
+                    <div class="summary-content" id="summaryContent">${summaryText}</div>
+                </div>
+
+                <!-- Overview Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${durationFormatted}</div>
+                        <div class="stat-label">Total Duration</div>
+                        </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${Math.max(p1TDom, p2TDom)}%</div>
+                        <div class="stat-label">${labels.t_dominance} Winner</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${isMultiGame ? pxToMiles(p1Running + p2Running) + ' mi' : pxToFt(p1Running + p2Running) + ' ft'}</div>
+                        <div class="stat-label">Total Distance</div>
+                        </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${p1Attacks + p2Attacks}</div>
+                        <div class="stat-label">Total ${labels.attack}s</div>
+                        </div>
+                        </div>
+                
+                <!-- Performance Metrics -->
+                <div class="section-card">
+                    <h2 class="section-title">📈 Performance Metrics</h2>
+                    <div class="metric-comparison">
+                        <!-- T-Dominance -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-name">🎯 ${labels.t_dominance}</span>
+                                <span class="metric-winner ${getWinnerClass(p1TDom, p2TDom)}" id="tDomWinner">${getWinnerName(p1TDom, p2TDom)}</span>
+                    </div>
+                            <p class="metric-desc">${labels.t_desc}</p>
+                            <div class="metric-bars">
+                                <div class="metric-player p1">
+                                    <div class="metric-player-label player1-name">${playerNames.player1}</div>
+                                    <div class="metric-player-value">${p1TDom}%</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p1" style="width: ${p1TDomPct}%"></div></div>
+                    </div>
+                                <div class="metric-player p2">
+                                    <div class="metric-player-label player2-name">${playerNames.player2}</div>
+                                    <div class="metric-player-value">${p2TDom}%</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2TDomPct}%"></div></div>
+                    </div>
+                    </div>
+                            <div class="analysis-text">${analysis.t_dominance?.summary || 'Analysis not available.'}</div>
+                </div>
+
+                        <!-- Scramble -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-name">🏃 ${labels.scramble}</span>
+                                <span class="metric-winner ${getWinnerClass(p1Scramble, p2Scramble, true)}" id="scrambleWinner">${getWinnerName(p1Scramble, p2Scramble, true)}</span>
+                                </div>
+                            <p class="metric-desc">${labels.scramble_desc}</p>
+                            <div class="metric-bars">
+                                <div class="metric-player p1">
+                                    <div class="metric-player-label player1-name">${playerNames.player1}</div>
+                                    <div class="metric-player-value">${pxToFt(p1Scramble)} ft</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p1" style="width: ${p1ScramblePct}%"></div></div>
+                            </div>
+                                <div class="metric-player p2">
+                                    <div class="metric-player-label player2-name">${playerNames.player2}</div>
+                                    <div class="metric-player-value">${pxToFt(p2Scramble)} ft</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2ScramblePct}%"></div></div>
+                                </div>
+                                </div>
+                            <div class="analysis-text">${analysis.scramble_score?.summary || 'Analysis not available.'}</div>
+                        </div>
+
+                        <!-- Running -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-name">👟 ${labels.running}</span>
+                                <span class="metric-winner ${getWinnerClass(p1Running, p2Running)}" id="runningWinner">${getWinnerName(p1Running, p2Running)}</span>
+                                </div>
+                            <p class="metric-desc">${labels.running_desc}</p>
+                            <div class="metric-bars">
+                                <div class="metric-player p1">
+                                    <div class="metric-player-label player1-name">${playerNames.player1}</div>
+                                    <div class="metric-player-value">${isMultiGame ? pxToMiles(p1Running) + ' mi' : pxToFt(p1Running) + ' ft'}</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p1" style="width: ${p1RunPct}%"></div></div>
+                            </div>
+                                <div class="metric-player p2">
+                                    <div class="metric-player-label player2-name">${playerNames.player2}</div>
+                                    <div class="metric-player-value">${isMultiGame ? pxToMiles(p2Running) + ' mi' : pxToFt(p2Running) + ' ft'}</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2RunPct}%"></div></div>
+                                </div>
+                                </div>
+                            <div class="analysis-text">${analysis.running_score?.summary || 'Analysis not available.'}</div>
+                        </div>
+
+                        <!-- Attack -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-name">⚡ ${labels.attack}</span>
+                                <span class="metric-winner ${getWinnerClass(p1Attacks, p2Attacks)}" id="attackWinner">${getWinnerName(p1Attacks, p2Attacks)}</span>
+                                </div>
+                            <p class="metric-desc">${labels.attack_desc}</p>
+                            <div class="metric-bars">
+                                <div class="metric-player p1">
+                                    <div class="metric-player-label player1-name">${playerNames.player1}</div>
+                                    <div class="metric-player-value">${p1Attacks}</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p1" style="width: ${p1AttackPct}%"></div></div>
+                            </div>
+                                <div class="metric-player p2">
+                                    <div class="metric-player-label player2-name">${playerNames.player2}</div>
+                                    <div class="metric-player-value">${p2Attacks}</div>
+                                    <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2AttackPct}%"></div></div>
+                                </div>
+                                </div>
+                            <div class="analysis-text">${analysis.attack_score?.summary || 'Analysis not available.'}</div>
+                        </div>
+
+                        <!-- Tight Rails -->
+                        <div class="metric-card full-width">
+                            <div class="metric-header">
+                                <span class="metric-name">🧱 ${labels.rail}</span>
+                                <span class="metric-winner ${p1Rail && p2Rail ? getWinnerClass(p1Rail, p2Rail, true) : 'tie'}" id="railWinner">${p1Rail && p2Rail ? getWinnerName(p1Rail, p2Rail, true) : 'N/A'}</span>
+                                </div>
+                            <p class="metric-desc">${labels.rail_desc}</p>
+                            <div class="metric-bars">
+                                <div class="metric-player p1">
+                                    <div class="metric-player-label player1-name">${playerNames.player1}</div>
+                                    <div class="metric-player-value">${p1Rail ? p1Rail.toFixed(1) + ' ft' : 'N/A'}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p1TightRails} tight shots</div>
+                            </div>
+                                <div class="metric-player p2">
+                                    <div class="metric-player-label player2-name">${playerNames.player2}</div>
+                                    <div class="metric-player-value">${p2Rail ? p2Rail.toFixed(1) + ' ft' : 'N/A'}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p2TightRails} tight shots</div>
+                                </div>
+                                </div>
+                            <div class="analysis-text">${p1Rail > 0 && p2Rail > 0 
+                                ? (p1Rail < p2Rail 
+                                    ? `${playerNames.player1} kept the ball closer to the wall (avg ${p1Rail.toFixed(1)} ft) compared to ${playerNames.player2} (${p2Rail.toFixed(1)} ft).`
+                                    : `${playerNames.player2} kept the ball closer to the wall (avg ${p2Rail.toFixed(1)} ft) compared to ${playerNames.player1} (${p1Rail.toFixed(1)} ft).`)
+                                : 'Rail analysis not available.'}</div>
+                            </div>
+                            </div>
+                        </div>
+
+                <!-- AI Chat -->
+                    <div class="chat-card">
+                        <div class="chat-header">
+                            <span style="font-size: 1.3rem;">💬</span>
+                        <h3>Ask About This Score Card</h3>
+                        </div>
+                        <div class="chat-suggestions">
+                            <span class="suggestion-chip" onclick="askQuestion('Who is winning?')">Who is winning?</span>
+                        <span class="suggestion-chip" onclick="askQuestion('Explain ${labels.t_dominance}')">T-Dominance?</span>
+                        <span class="suggestion-chip" onclick="askQuestion('Who has tighter rails?')">Tight rails?</span>
+                            <span class="suggestion-chip" onclick="askQuestion('Who is more aggressive?')">More aggressive?</span>
+                        </div>
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="chat-message assistant">
+                            <div class="message-bubble">👋 Hi! I'm your ${labels.name.toLowerCase()} analyst. Ask me anything about this score card - who's winning, tactical insights, or specific metrics!</div>
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="Ask about the match..." onkeypress="if(event.key==='Enter')sendChat()">
+                        <button class="chat-send-btn" onclick="sendChat()">Send</button>
+                    </div>
+                </div>
+
+                <!-- Downloads -->
+                ${downloadsHtml}
+            `;
+        }
+        
+        // Player frame fallback for multi-game matches
+        function tryNextPlayerFrame(sources, currentIndex) {
+            const nextIndex = currentIndex + 1;
+            if (nextIndex < sources.length) {
+                const img = document.getElementById('playerFrameImg');
+                const caption = document.getElementById('playerFrameCaption');
+                img.src = sources[nextIndex].path;
+                img.onerror = () => tryNextPlayerFrame(sources, nextIndex);
+                if (caption) caption.textContent = `Frame from ${sources[nextIndex].label}`;
+            } else {
+                document.querySelector('.player-id-frame').innerHTML = '<div class="player-id-frame-placeholder">Player frame not available</div>';
+            }
+        }
+        
+        // Player frame fallback for single games - try different filename patterns
+        function tryNextPlayerFramePath(paths, currentIndex) {
+            const nextIndex = currentIndex + 1;
+            if (nextIndex < paths.length) {
+                const img = document.getElementById('playerFrameImg');
+                if (img) {
+                    img.src = paths[nextIndex];
+                    img.onerror = () => tryNextPlayerFramePath(paths, nextIndex);
+                }
+            } else {
+                const frameContainer = document.querySelector('.player-id-frame');
+                if (frameContainer) {
+                    frameContainer.innerHTML = '<div class="player-id-frame-placeholder">Player frame not available</div>';
+                }
+            }
+        }
+        
+        // Update player names
+        function updatePlayerNames() {
+            const p1 = document.getElementById('player1Input').value.trim() || 'Player 1';
+            const p2 = document.getElementById('player2Input').value.trim() || 'Player 2';
+            playerNames = { player1: p1, player2: p2 };
+            
+            // Save names to localStorage for persistence
+            localStorage.setItem(`playerNames_${jobId}`, JSON.stringify(playerNames));
+            
+            // Update ALL player name displays across the page
+            document.querySelectorAll('.player1-name, #p1NameHeader').forEach(el => el.textContent = p1);
+            document.querySelectorAll('.player2-name, #p2NameHeader').forEach(el => el.textContent = p2);
+            
+            // Update Match Summary highlights
+            document.querySelectorAll('.highlight-p1').forEach(el => el.textContent = p1);
+            document.querySelectorAll('.highlight-p2').forEach(el => el.textContent = p2);
+            
+            // Get analytics for winner calculations
+            const analytics = analyticsData?.result?.squash_analytics || analyticsData?.result?.analytics || {};
+            const p1Data = analytics.player1 || {};
+            const p2Data = analytics.player2 || {};
+            
+            // T-Dominance
+            const p1TDom = p1Data.avg_t_dominance ?? p1Data.t_dominance ?? 0;
+            const p2TDom = p2Data.avg_t_dominance ?? p2Data.t_dominance ?? 0;
+            
+            // Scramble (lower is better)
+            const p1Scramble = p1Data.avg_scramble_score ?? p1Data.scramble_score ?? 0;
+            const p2Scramble = p2Data.avg_scramble_score ?? p2Data.scramble_score ?? 0;
+            
+            // Running
+            const p1Running = p1Data.total_running_score ?? p1Data.running_score ?? 0;
+            const p2Running = p2Data.total_running_score ?? p2Data.running_score ?? 0;
+            
+            // Attacks
+            const p1Attacks = p1Data.total_attack_score ?? p1Data.attack_score ?? 0;
+            const p2Attacks = p2Data.total_attack_score ?? p2Data.attack_score ?? 0;
+            
+            // Rails (lower is better)
+            const p1Rail = p1Data.avg_rail_distance_inches ?? p1Data.avg_rail_distance ?? 0;
+            const p2Rail = p2Data.avg_rail_distance_inches ?? p2Data.avg_rail_distance ?? 0;
+            
+            // Update ALL metric winner badges
+            const updateWinner = (id, p1Val, p2Val, lowerIsBetter = false) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (lowerIsBetter) {
+                    el.textContent = p1Val < p2Val ? p1 : p2Val < p1Val ? p2 : 'Tie';
+                } else {
+                    el.textContent = p1Val > p2Val ? p1 : p2Val > p1Val ? p2 : 'Tie';
+                }
+            };
+            
+            updateWinner('tDomWinner', p1TDom, p2TDom);
+            updateWinner('scrambleWinner', p1Scramble, p2Scramble, true);
+            updateWinner('runningWinner', p1Running, p2Running);
+            updateWinner('attackWinner', p1Attacks, p2Attacks);
+            updateWinner('railWinner', p1Rail, p2Rail, true);
+            
+            // Update any remaining analysis text that contains "Player 1" or "Player 2"
+            document.querySelectorAll('.analysis-text').forEach(el => {
+                el.innerHTML = el.innerHTML
+                    .replace(/Player 1/g, p1)
+                    .replace(/Player 2/g, p2);
+            });
+            
+            // Regenerate the match summary with new names
+            regenerateMatchSummary();
+        }
+        
+        // Regenerate match summary with current names
+        function regenerateMatchSummary() {
+            const summaryEl = document.getElementById('summaryContent');
+            if (!summaryEl || !analyticsData) return;
+            
+            const result = analyticsData.result || {};
+            const analysis = result.squash_analytics || result.analytics || {};
+            const p1 = analysis.player1 || {};
+            const p2 = analysis.player2 || {};
+            const sportType = result.sport_type || 'squash';
+            const labels = sportLabels[sportType] || sportLabels.squash;
+            
+            const summaryText = generateMatchSummary(p1, p2, analysis, playerNames, labels);
+            summaryEl.innerHTML = summaryText;
+        }
+        
+        // Chat functionality
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            const messagesDiv = document.getElementById('chatMessages');
+            
+            // Add user message
+            messagesDiv.innerHTML += `
+                <div class="chat-message user">
+                    <div class="message-bubble">${message}</div>
+                </div>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        job_id: jobId,
+                        player_names: playerNames
+                    })
+                });
+
+                const data = await response.json();
+                messagesDiv.innerHTML += `
+                    <div class="chat-message assistant">
+                        <div class="message-bubble">${data.response || 'Sorry, I could not process that request.'}</div>
+                    </div>`;
+            } catch (error) {
+                messagesDiv.innerHTML += `
+                    <div class="chat-message assistant">
+                        <div class="message-bubble">Sorry, there was an error processing your request.</div>
+                    </div>`;
+            }
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function askQuestion(question) {
+            document.getElementById('chatInput').value = question;
+            sendChat();
+        }
+        
+        // Initialize
+        loadData();
+    </script>
+</body>
+</html>
