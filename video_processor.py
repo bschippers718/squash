@@ -4,7 +4,27 @@ Video Processing Module
 Reusable video processing functions for YOLO object detection.
 """
 
-import cv2
+import os
+
+# Disable OpenCV GUI features for headless environments
+# These must be set BEFORE importing cv2
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+# Prevent OpenCV from trying to load libGL.so.1
+os.environ['OPENCV_DISABLE_OPENCL'] = '1'
+
+try:
+    import cv2
+except ImportError as e:
+    if 'libGL.so.1' in str(e):
+        raise ImportError(
+            "OpenCV failed to import due to missing libGL.so.1. "
+            "This is a headless environment issue. "
+            "Ensure you're using 'opencv-python-headless' instead of 'opencv-python'. "
+            "If the issue persists, you may need to install system libraries: "
+            "libgl1-mesa-glx or libglib2.0-0"
+        ) from e
+    raise
 import json
 import os
 import time

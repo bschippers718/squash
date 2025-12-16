@@ -11,6 +11,13 @@ import os
 os.environ['YOLO_CONFIG_DIR'] = '/tmp/ultralytics'
 os.environ['HOME'] = os.environ.get('HOME', '/tmp')  # Fallback for cloud environments
 
+# Disable OpenCV GUI features for headless environments
+# These must be set BEFORE importing cv2
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+# Prevent OpenCV from trying to load libGL.so.1
+os.environ['OPENCV_DISABLE_OPENCL'] = '1'
+
 from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import re
 import uuid

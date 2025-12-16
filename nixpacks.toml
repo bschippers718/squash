@@ -1,10 +1,12 @@
 [phases.setup]
 nixPkgs = ["python3", "gcc"]
+env = { OPENCV_IO_ENABLE_OPENEXR = "0", QT_QPA_PLATFORM = "offscreen", OPENCV_DISABLE_OPENCL = "1" }
 
 [phases.install]
 cmds = [
     "python -m venv --copies /opt/venv",
     ". /opt/venv/bin/activate && pip install --upgrade pip",
+    ". /opt/venv/bin/activate && pip uninstall -y opencv-python opencv-contrib-python || true",
     ". /opt/venv/bin/activate && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu",
     ". /opt/venv/bin/activate && pip install flask werkzeug google-generativeai ultralytics opencv-python-headless"
 ]
