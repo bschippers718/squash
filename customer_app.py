@@ -53,9 +53,16 @@ def update_job(job_id, **kwargs):
 
 def process_video_task(job_id, video_path, sport='squash'):
     """Background task to process video with sport-specific parameters"""
+    import traceback
+    import sys
+    
+    print(f"[{job_id}] Starting video processing task...", flush=True)
+    
     try:
         # Import here to avoid loading model at startup
+        print(f"[{job_id}] Importing video_processor...", flush=True)
         from video_processor import process_video
+        print(f"[{job_id}] video_processor imported successfully", flush=True)
         
         update_job(job_id, status='processing', progress=0, message=f'Starting {sport} video processing...')
         
@@ -63,9 +70,11 @@ def process_video_task(job_id, video_path, sport='squash'):
         output_dir.mkdir(exist_ok=True)
         
         def progress_callback(progress, message):
+            print(f"[{job_id}] Progress: {progress}% - {message}", flush=True)
             update_job(job_id, progress=progress, message=message)
         
         # Pass sport parameter to video processor
+        print(f"[{job_id}] Calling process_video...", flush=True)
         result = process_video(video_path, str(output_dir), progress_callback, sport=sport)
         
         if result and result.get('success'):
@@ -80,12 +89,18 @@ def process_video_task(job_id, video_path, sport='squash'):
                 sport=sport,
                 completed_at=datetime.now().isoformat()
             )
+            print(f"[{job_id}] Processing completed successfully!", flush=True)
         else:
             error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
+            print(f"[{job_id}] Processing failed: {error_msg}", flush=True)
             update_job(job_id, status='failed', message=error_msg)
             
     except Exception as e:
-        update_job(job_id, status='failed', message=str(e))
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        print(f"[{job_id}] EXCEPTION: {error_msg}", flush=True)
+        traceback.print_exc()
+        sys.stdout.flush()
+        update_job(job_id, status='failed', message=error_msg)
 
 @app.route('/')
 def index():
@@ -878,13 +893,19 @@ if __name__ == '__main__':
     
     # Get port from environment (Railway/Render/Heroku set this) or default to 5001
     port = int(os.environ.get('PORT', 5001))
-    debug = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
+    
+    # Detect if running in production (Railway sets PORT)
+    is_production = 'PORT' in os.environ or 'RAILWAY_ENVIRONMENT' in os.environ
+    debug = not is_production and os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
     
     print("🎬 Video Analysis Customer Portal")
     print("=" * 50)
+    print(f"Environment: {'PRODUCTION' if is_production else 'DEVELOPMENT'}")
+    print(f"Debug mode: {debug}")
     print("Starting server...")
     print(f"Open your browser to: http://localhost:{port}")
-    print("=" * 50)
+    print("=" * 50, flush=True)
     
-    app.run(debug=debug, host='0.0.0.0', port=port, threaded=True)
+    # In production, disable reloader to prevent threading issues
+    app.run(debug=debug, host='0.0.0.0', port=port, threaded=True, use_reloader=not is_production)
 
