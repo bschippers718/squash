@@ -1,5 +1,10 @@
-ultralytics
-opencv-python
-google-generativeai
+# Core Flask app
 flask
 werkzeug
+
+# Google AI
+google-generativeai
+
+# ML - will install CPU versions via nixpacks
+ultralytics
+opencv-python-headless
