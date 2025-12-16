@@ -4,8 +4,14 @@ Customer-Facing Video Upload & Processing Website
 Allows customers to upload videos and track processing status.
 """
 
-from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import os
+
+# Set YOLO config directory to writable location (for Railway/cloud deployments)
+# This must be set BEFORE importing ultralytics
+os.environ['YOLO_CONFIG_DIR'] = '/tmp/ultralytics'
+os.environ['HOME'] = os.environ.get('HOME', '/tmp')  # Fallback for cloud environments
+
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import re
 import uuid
 import json

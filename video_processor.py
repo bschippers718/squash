@@ -453,8 +453,15 @@ def get_model():
     """Get or load the YOLO model (singleton pattern)"""
     global _model
     if _model is None:
-        model_path = Path(__file__).parent / 'yolov8n.pt'
-        _model = YOLO(str(model_path))
+        # Try local model first, otherwise auto-download from ultralytics
+        local_model = Path(__file__).parent / 'yolov8n.pt'
+        if local_model.exists():
+            print(f"Loading local YOLO model from {local_model}")
+            _model = YOLO(str(local_model))
+        else:
+            print("Local model not found, auto-downloading yolov8n.pt...")
+            _model = YOLO('yolov8n.pt')  # Auto-downloads from ultralytics
+            print("Model downloaded successfully!")
     return _model
 
 
