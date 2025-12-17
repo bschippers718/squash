@@ -561,7 +561,8 @@ def check_gpu():
         return True, torch.cuda.get_device_name(0)
     return False, "CPU"
 
-def process_video(video_path, output_dir, progress_callback=None, sport='squash'):
+def process_video(video_path, output_dir, progress_callback=None, sport='squash',
+                  frame_skip=2, max_process_width=640, generate_annotated_video=True):
     """
     Process a video file with YOLO object detection.
     
@@ -570,6 +571,9 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
         output_dir: Directory to save results
         progress_callback: Optional callback function(progress_percent, message)
         sport: Sport type for sport-specific processing ('squash', 'padel', 'tennis', 'table_tennis')
+        frame_skip: Process every Nth frame (1=all frames, 2=every other, 3=every 3rd, etc.)
+        max_process_width: Maximum width for processing (smaller = faster). Set to None to use original.
+        generate_annotated_video: Whether to generate annotated output video (slower if True)
     
     Returns:
         dict with processing results or None if failed
@@ -604,13 +608,27 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
+    # Calculate processing dimensions (for speed optimization)
+    if max_process_width and width > max_process_width:
+        scale = max_process_width / width
+        process_width = max_process_width
+        process_height = int(height * scale)
+        print(f"[video_processor] Resizing from {width}x{height} to {process_width}x{process_height} for faster processing", flush=True)
+    else:
+        scale = 1.0
+        process_width, process_height = width, height
+    
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
     
-    # Setup video writer for annotated video
+    # Setup video writer for annotated video (optional)
     output_video_path = os.path.join(output_dir, f"{video_name}_annotated.mp4")
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+    out = None
+    if generate_annotated_video:
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Output at reduced FPS to match frame skipping
+        output_fps = fps // frame_skip if frame_skip > 1 else fps
+        out = cv2.VideoWriter(output_video_path, fourcc, output_fps, (process_width, process_height))
     
     # Initialize detection data storage with sport info
     detection_data = {
@@ -624,13 +642,21 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
             "gpu_used": use_gpu,
             "device": device_name,
             "sport": sport,
-            "sport_name": sport_config.get('name', sport.title())
+            "sport_name": sport_config.get('name', sport.title()),
+            "frame_skip": frame_skip,
+            "process_width": process_width,
+            "process_height": process_height
         },
         "detections": []
     }
     
     frame_count = 0
+    processed_count = 0
     start_time = time.time()
+    
+    # Calculate effective frames to process
+    effective_frames = total_frames // frame_skip
+    print(f"[video_processor] Processing {effective_frames} frames (skip={frame_skip}, total={total_frames})", flush=True)
     
     # Process frames
     while cap.isOpened():
@@ -641,9 +667,21 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
             
         frame_count += 1
         
-        # Run YOLOv8 inference
+        # Skip frames for faster processing
+        if frame_skip > 1 and frame_count % frame_skip != 0:
+            continue
+        
+        processed_count += 1
+        
+        # Resize frame for faster YOLO inference
+        if scale < 1.0:
+            frame_resized = cv2.resize(frame, (process_width, process_height))
+        else:
+            frame_resized = frame
+        
+        # Run YOLOv8 inference on resized frame
         device = 0 if use_gpu else 'cpu'
-        results = model(frame, conf=0.4, iou=0.5, device=device, verbose=False)
+        results = model(frame_resized, conf=0.4, iou=0.5, device=device, verbose=False)
         result = results[0]
         
         # Extract detection information
@@ -659,7 +697,13 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
                 class_name = model.names[class_id]
                 confidence = float(box.conf[0])
                 
+                # Get bounding box coordinates (in processed resolution)
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
+                
+                # Scale coordinates back to original resolution for accurate analytics
+                if scale < 1.0:
+                    x1, x2 = x1 / scale, x2 / scale
+                    y1, y2 = y1 / scale, y2 / scale
                 
                 detection_info = {
                     "object_id": i,
@@ -674,23 +718,30 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
         
         detection_data["detections"].append(frame_detections)
         
-        # Create annotated frame
-        annotated_frame = result.plot()
-        out.write(annotated_frame)
+        # Create annotated frame (optional)
+        if generate_annotated_video and out is not None:
+            annotated_frame = result.plot()
+            out.write(annotated_frame)
         
         # Progress callback
-        if progress_callback and frame_count % 30 == 0:
+        if progress_callback and processed_count % 30 == 0:
             progress = (frame_count / total_frames) * 100
             elapsed = time.time() - start_time
-            fps_processed = frame_count / elapsed if elapsed > 0 else 0
-            remaining = (total_frames - frame_count) / fps_processed if fps_processed > 0 else 0
+            fps_processed = processed_count / elapsed if elapsed > 0 else 0
+            remaining = (effective_frames - processed_count) / fps_processed if fps_processed > 0 else 0
             progress_callback(progress, f"Processing frame {frame_count}/{total_frames} ({fps_processed:.1f} FPS, {remaining:.0f}s remaining)")
     
     # Cleanup
     cap.release()
-    out.release()
+    if out is not None:
+        out.release()
     
     processing_time = time.time() - start_time
+    
+    # Log performance stats
+    actual_fps = processed_count / processing_time if processing_time > 0 else 0
+    speedup = (frame_skip * (width / process_width if scale < 1.0 else 1))
+    print(f"[video_processor] Processed {processed_count} frames in {processing_time:.1f}s ({actual_fps:.1f} FPS, ~{speedup:.1f}x speedup)", flush=True)
     
     # Count detections by class
     class_counts = {}
@@ -740,11 +791,13 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
         f.write("=" * 40 + "\n\n")
         f.write(f"Input Video: {video_path}\n")
         f.write(f"Total Frames: {total_frames}\n")
+        f.write(f"Frames Processed: {processed_count} (skip={frame_skip})\n")
         f.write(f"FPS: {fps}\n")
         f.write(f"Duration: {total_frames/fps:.2f} seconds\n")
-        f.write(f"Resolution: {width}x{height}\n")
+        f.write(f"Original Resolution: {width}x{height}\n")
+        f.write(f"Processing Resolution: {process_width}x{process_height}\n")
         f.write(f"Processing Time: {processing_time:.2f} seconds\n")
-        f.write(f"Processing Speed: {frame_count/processing_time:.2f} FPS\n")
+        f.write(f"Processing Speed: {processed_count/processing_time:.2f} FPS\n")
         f.write(f"Device: {device_name}\n\n")
         
         f.write("Detection Summary by Class:\n")
@@ -800,9 +853,12 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
         "sport_name": sport_config.get('name', sport.title()),
         "processing_time": round(processing_time, 2),
         "total_frames": total_frames,
+        "frames_processed": processed_count,
+        "frame_skip": frame_skip,
+        "process_resolution": f"{process_width}x{process_height}",
         "fps": fps,
         "duration_seconds": round(total_frames / fps, 2),
-        "fps_processed": round(frame_count / processing_time, 2),
+        "fps_processed": round(processed_count / processing_time, 2) if processing_time > 0 else 0,
         "total_detections": sum(class_counts.values()),
         "detection_summary": class_counts,
         "quality_metrics": quality_metrics,
@@ -810,7 +866,7 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
         "player_colors": player_colors,
         "player_id_frame": player_id_frame,
         "output_files": {
-            "annotated_video": output_video_path,
+            "annotated_video": output_video_path if generate_annotated_video else None,
             "detection_data": json_output_path,
             "compact_json": compact_json_path,
             "ultra_compact": ultra_compact_path,
