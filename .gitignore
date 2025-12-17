@@ -17,6 +17,14 @@ uploads/
 customer_results/
 detection_results/
 
+# Video files (too large for git)
+*.mov
+*.mp4
+*.avi
+*.mkv
+*.m4v
+*.webm
+
 # IDE
 .idea/
 .vscode/
@@ -33,3 +41,4 @@ Thumbs.db
 
 # Logs
 *.log
+.vercel

@@ -1,16 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "customer_app.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "customer_app.py"
-    }
+  "framework": null,
+  "installCommand": "pip install flask werkzeug google-generativeai",
+  "buildCommand": "",
+  "outputDirectory": "",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
   ]
 }
-

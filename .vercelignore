@@ -1,0 +1,28 @@
+# Virtual environment
+bin/
+lib/
+include/
+share/
+pyvenv.cfg
+
+# Large files
+*.pt
+*.pth
+*.onnx
+*.mov
+*.mp4
+*.MOV
+*.MP4
+
+# Data directories
+uploads/
+customer_results/
+detection_results/
+video/
+__pycache__/
+
+# Other
+.git/
+.DS_Store
+*.pyc
+

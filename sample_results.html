@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squash Analysis Results | VideoAI - SAMPLE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --accent: #00d4aa;
+            --accent-glow: rgba(0, 212, 170, 0.4);
+            --player1: #00d4aa;
+            --player2: #6366f1;
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-elevated: #1a1a25;
+            --text-primary: #ffffff;
+            --text-secondary: #8b8b9e;
+            --border: #2a2a3a;
+            --success: #00d4aa;
+            --warning: #ffa502;
+            --danger: #ff4757;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                var(--bg-dark);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Sample Banner */
+        .sample-banner {
+            background: linear-gradient(90deg, var(--warning), #ff6b6b);
+            color: var(--bg-dark);
+            text-align: center;
+            padding: 12px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), #6366f1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .new-upload-btn {
+            background: var(--accent);
+            color: var(--bg-dark);
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .new-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--accent-glow);
+        }
+
+        /* Title Section */
+        .title-section {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .title-section h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 212, 170, 0.1);
+            color: var(--success);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        /* Video Section - TOP */
+        .video-section {
+            margin-bottom: 30px;
+        }
+
+        .video-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+        }
+
+        .video-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .video-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .video-placeholder {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, var(--bg-elevated), var(--bg-dark));
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .video-placeholder-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        /* Player Identification */
+        .player-setup {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .player-setup-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .player-setup-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .player-setup-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        .player-id-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .player-id-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .player-id-frame {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+
+        .player-id-frame img {
+            width: 100%;
+            display: block;
+        }
+
+        .player-id-frame-placeholder {
+            background: var(--bg-elevated);
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .player-id-frame-caption {
+            background: var(--bg-elevated);
+            padding: 10px 15px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .player-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .player-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .player-input-label {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .player-badge.left {
+            background: rgba(0, 212, 170, 0.2);
+            color: var(--player1);
+            border: 1px solid var(--player1);
+        }
+
+        .player-badge.right {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--player2);
+            border: 1px solid var(--player2);
+        }
+
+        .player-input {
+            background: var(--bg-elevated);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 18px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .player-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg-card);
+        }
+
+        .player-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .player-input.p1-input:focus {
+            border-color: var(--player1);
+        }
+
+        .player-input.p2-input:focus {
+            border-color: var(--player2);
+        }
+
+        /* Match Summary */
+        .match-summary {
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 212, 170, 0.05) 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+        }
+
+        .summary-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .summary-header h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .summary-icon {
+            font-size: 1.5rem;
+        }
+
+        .summary-content {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        .summary-content strong {
+            color: var(--text-primary);
+        }
+
+        .summary-content .highlight-p1 {
+            color: var(--player1);
+            font-weight: 600;
+        }
+
+        .summary-content .highlight-p2 {
+            color: var(--player2);
+            font-weight: 600;
+        }
+
+        /* Match Overview Stats */
+        .match-overview {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 900px) {
+            .match-overview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .overview-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .overview-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 5px;
+        }
+
+        .overview-label {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Analytics Cards */
+        .analytics-section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .analytics-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .analytics-card:hover {
+            border-color: var(--accent);
+        }
+
+        .analytics-card.full-width {
+            grid-column: span 2;
+        }
+
+        @media (max-width: 900px) {
+            .analytics-card.full-width {
+                grid-column: span 1;
+            }
+        }
+
+        .analytics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .analytics-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .analytics-icon {
+            font-size: 1.3rem;
+        }
+
+        .winner-badge {
+            background: rgba(0, 212, 170, 0.15);
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Player Comparison */
+        .player-comparison {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .player-stat {
+            text-align: center;
+        }
+
+        .player-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .player-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .player-value.p1 { color: var(--player1); }
+        .player-value.p2 { color: var(--player2); }
+
+        .player-unit {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 3px;
+        }
+
+        .vs-divider {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* Progress Bar Comparison */
+        .comparison-bar {
+            height: 10px;
+            background: var(--bg-elevated);
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+            margin-bottom: 12px;
+        }
+
+        .bar-p1 {
+            background: linear-gradient(90deg, var(--player1), #00b894);
+            transition: width 0.5s ease;
+        }
+
+        .bar-p2 {
+            background: linear-gradient(90deg, #8b5cf6, var(--player2));
+            transition: width 0.5s ease;
+        }
+
+        /* Analysis Text */
+        .analysis-text {
+            background: var(--bg-elevated);
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            border-left: 3px solid var(--accent);
+        }
+
+        /* Chat Section */
+        .chat-section {
+            margin-bottom: 30px;
+        }
+
+        .chat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header h3 {
+            font-size: 1.2rem;
+        }
+
+        .chat-messages {
+            height: 300px;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .chat-message {
+            margin-bottom: 15px;
+            max-width: 85%;
+        }
+
+        .chat-message.user {
+            margin-left: auto;
+        }
+
+        .chat-message.assistant {
+            margin-right: auto;
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .user .message-bubble {
+            background: var(--accent);
+            color: var(--bg-dark);
+            border-bottom-right-radius: 4px;
+        }
+
+        .assistant .message-bubble {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-input-area {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .chat-send-btn {
+            background: var(--accent);
+            color: var(--bg-dark);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chat-send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px var(--accent-glow);
+        }
+
+        .chat-suggestions {
+            padding: 10px 20px 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .suggestion-chip {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .suggestion-chip:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Downloads Section */
+        .downloads-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .downloads-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .download-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            padding: 12px 15px;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .download-item:hover {
+            background: rgba(0, 212, 170, 0.1);
+            transform: translateX(3px);
+        }
+
+        .download-icon {
+            font-size: 24px;
+        }
+
+        .download-info {
+            flex: 1;
+        }
+
+        .download-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 2px;
+        }
+
+        .download-desc {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .download-arrow {
+            color: var(--accent);
+            font-size: 18px;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="sample-banner">
+        ⚠️ SAMPLE PAGE - This is a static preview with mock data for testing the design
+    </div>
+    
+    <div class="bg-gradient"></div>
+
+    <div class="container">
+        <header>
+            <a href="#" class="logo">
+                <div class="logo-icon">🎯</div>
+                <span class="logo-text">VideoAI</span>
+            </a>
+            <a href="#" class="new-upload-btn">+ New Analysis</a>
+        </header>
+
+        <div class="title-section">
+            <h1><svg style="width: 40px; height: 40px; vertical-align: middle; margin-right: 8px;" fill="#00d4aa" viewBox="0 0 493.415 493.415"><g><g><path d="M246.708,493.415c136.256,0,246.703-110.456,246.703-246.712C493.411,110.457,382.963,0,246.708,0S0.004,110.457,0.004,246.703C0.004,382.959,110.452,493.415,246.708,493.415z M291.68,122.878c12.422,0,22.491,10.069,22.491,22.491s-10.069,22.491-22.491,22.491s-22.491-10.069-22.491-22.491C269.199,132.938,279.258,122.878,291.68,122.878z M269.199,214.19c12.422,0,22.491,10.069,22.491,22.491s-10.069,22.491-22.491,22.491c-12.422-0.01-22.491-10.069-22.491-22.491S256.777,214.19,269.199,214.19z"/></g></g></svg>Squash Match Analysis</h1>
+            <div class="status-badge">
+                <span>✓</span>
+                <span>Analysis Complete</span>
+            </div>
+        </div>
+
+        <!-- VIDEO AT TOP -->
+        <div class="video-section">
+            <div class="video-card">
+                <div class="video-header">
+                    <div class="video-title">🎬 Match Video</div>
+                </div>
+                <div class="video-placeholder">
+                    <div class="video-placeholder-icon">🎥</div>
+                    <p>Video player would appear here</p>
+                    <p style="font-size: 0.9rem; margin-top: 5px;">Mohamed ElShorbagy vs Ali Farag - World Championship</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLAYER IDENTIFICATION -->
+        <div class="player-setup">
+            <div class="player-setup-header">
+                <span style="font-size: 1.5rem;">👤</span>
+                <h3 class="player-setup-title">Identify Players</h3>
+            </div>
+            <p class="player-setup-subtitle">Use the frame below to identify each player. The player boxed in <strong style="color: var(--player1)">GREEN</strong> is on the LEFT, and the player boxed in <strong style="color: var(--player2)">PURPLE</strong> is on the RIGHT.</p>
+            
+            <div class="player-id-container">
+                <div class="player-id-frame">
+                    <img src="static/sample_players.jpg" alt="Player identification frame showing both players from back of court view" style="width: 100%; height: auto; border-radius: 12px; display: block;">
+                    <div class="player-id-frame-caption">Frame showing both players (back-of-court view)</div>
+                </div>
+                
+                <div class="player-inputs">
+                    <div class="player-input-group">
+                        <label class="player-input-label">
+                            <span class="player-badge left">LEFT</span>
+                            Who is this player?
+                        </label>
+                        <input type="text" class="player-input p1-input" id="player1Name" 
+                               value="Mohamed ElShorbagy" 
+                               placeholder="Enter name (e.g., Mohamed)">
+                    </div>
+                    <div class="player-input-group">
+                        <label class="player-input-label">
+                            <span class="player-badge right">RIGHT</span>
+                            Who is this player?
+                        </label>
+                        <input type="text" class="player-input p2-input" id="player2Name" 
+                               value="Ali Farag" 
+                               placeholder="Enter name (e.g., Ali)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MATCH SUMMARY -->
+        <div class="match-summary">
+            <div class="summary-card">
+                <div class="summary-header">
+                    <span class="summary-icon">📝</span>
+                    <h3>Match Summary</h3>
+                </div>
+                <div class="summary-content">
+                    <span class="highlight-p1">Mohamed ElShorbagy</span> held a <strong>clear tactical advantage</strong> in this match, though <span class="highlight-p2">Ali Farag</span> showed flashes of competitive play. The data reveals a classic "controller vs. retriever" dynamic, with one player dictating play from the T while the other was forced into a reactive, defensive posture.
+
+                    <br><br><strong>🎯 Court Control & The T:</strong> <span class="highlight-p1">ElShorbagy</span> controlled the T <strong>63%</strong> of the time compared to 37% for <span class="highlight-p2">Farag</span>. This <strong>26 percentage point gap</strong> is significant — <span class="highlight-p1">ElShorbagy</span> was able to volley early, cut off angles, and force <span class="highlight-p2">Farag</span> into the back corners repeatedly. When a player owns the T this decisively, they're essentially playing "downhill" — making their opponent do all the hard work.
+
+                    <br><br><strong>🏃 Movement & Scramble Analysis:</strong> <span class="highlight-p1">ElShorbagy</span> averaged <strong>5.5 ft</strong> from the T, while <span class="highlight-p2">Farag</span> averaged <strong>9.9 ft</strong>. This <strong>1.8x difference</strong> tells a clear story: <span class="highlight-p2">Farag</span> was being systematically pushed into the corners and forced to scramble. High scramble scores typically indicate a player is under sustained pressure — they're reacting rather than dictating.
+
+                    <br><br><strong>💪 Physical Workload:</strong> <span class="highlight-p1">ElShorbagy</span> covered approximately <strong>10.9 ft</strong> while <span class="highlight-p2">Farag</span> covered <strong>17.5 ft</strong>. <span class="highlight-p2">Farag</span> ran <strong>61% more</strong> than his opponent — a significant physical disparity. In a 5-game match, this kind of workload imbalance often manifests as fatigue in the 4th and 5th games. <em>Notably, the player running more was also scrambling more — they were being worked hard in every dimension.</em>
+
+                    <br><br><strong>⚡ Attacking Play:</strong> <span class="highlight-p1">ElShorbagy</span> generated <strong>197</strong> attacking shots while <span class="highlight-p2">Farag</span> produced <strong>169</strong>. <span class="highlight-p1">ElShorbagy</span> accounted for <strong>54%</strong> of all attacking play.
+
+                    <br><br><em>📊 Hidden Insight:</em> When we look at <strong>attacking efficiency</strong> (attacks per distance covered), <span class="highlight-p1">ElShorbagy</span> was <strong>1.8x more efficient</strong>. This means <span class="highlight-p1">ElShorbagy</span> generated more offensive opportunities while expending less energy — a sign of superior shot selection and court positioning. <span class="highlight-p2">Farag</span> had to work significantly harder for each attacking chance, which is unsustainable over a long match.
+
+                    <br><br><strong>🧱 Length Game & Rail Quality:</strong> <span class="highlight-p1">ElShorbagy</span>'s rails averaged <strong>5.5 in</strong> from the wall (87 tight shots), while <span class="highlight-p2">Farag</span> averaged <strong>8.9 in</strong> (54 tight shots). <span class="highlight-p1">ElShorbagy</span> demonstrated superior length game accuracy. Tight rails are the <strong>foundation of squash</strong> — they limit your opponent's options, prevent attacking returns, and create weak balls that can be punished. <em>It's no coincidence that the player hitting tighter rails also controlled the T more — good length creates good position.</em>
+
+                    <br><br><strong>💡 Key Takeaways:</strong>
+                    <br>• <strong>For <span class="highlight-p1">ElShorbagy</span>:</strong> Strong performance across the board. Maintain this level and look for small margins to exploit.
+                    <br>• <strong>For <span class="highlight-p2">Farag</span>:</strong> The T is everything in squash — prioritize getting there after every shot, even if it means sacrificing some shot power. Your movement was good but you were pulled out of position too often. Work on shot selection that keeps you closer to the T.
+                </div>
+            </div>
+        </div>
+
+        <!-- MATCH OVERVIEW -->
+        <div class="match-overview">
+            <div class="overview-card">
+                <div class="overview-value">4m 32s</div>
+                <div class="overview-label">Duration</div>
+            </div>
+            <div class="overview-card">
+                <div class="overview-value">8,156</div>
+                <div class="overview-label">Frames</div>
+            </div>
+            <div class="overview-card">
+                <div class="overview-value">42.3</div>
+                <div class="overview-label">FPS</div>
+            </div>
+            <div class="overview-card">
+                <div class="overview-value">366</div>
+                <div class="overview-label">Attacks</div>
+            </div>
+        </div>
+
+        <!-- ANALYTICS GRID -->
+        <div class="analytics-section">
+            <h2 class="section-title">📊 Performance Metrics</h2>
+            <div class="analytics-grid">
+                
+                <!-- T-Dominance -->
+                <div class="analytics-card">
+                    <div class="analytics-header">
+                        <div class="analytics-title">
+                            <span class="analytics-icon">🎯</span>
+                            T-Dominance
+                        </div>
+                        <div class="winner-badge">ElShorbagy</div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">Percentage of time each player controls the center "T" position — the most dominant court position.</p>
+                    <div class="player-comparison">
+                        <div class="player-stat">
+                            <div class="player-label">Mohamed ElShorbagy</div>
+                            <div class="player-value p1">62.6%</div>
+                        </div>
+                        <div class="vs-divider">vs</div>
+                        <div class="player-stat">
+                            <div class="player-label">Ali Farag</div>
+                            <div class="player-value p2">37.4%</div>
+                        </div>
+                    </div>
+                    <div class="comparison-bar">
+                        <div class="bar-p1" style="width: 62.6%"></div>
+                        <div class="bar-p2" style="width: 37.4%"></div>
+                    </div>
+                    <div class="analysis-text">ElShorbagy is controlling the center of the court, forcing Farag to move around him and retrieve from difficult positions.</div>
+                </div>
+
+                <!-- Scramble Score -->
+                <div class="analytics-card">
+                    <div class="analytics-header">
+                        <div class="analytics-title">
+                            <span class="analytics-icon">🏃</span>
+                            Scramble Score
+                        </div>
+                        <div class="winner-badge">ElShorbagy</div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">Average distance from the T — lower is better. High scramble means a player is being pushed around the court.</p>
+                    <div class="player-comparison">
+                        <div class="player-stat">
+                            <div class="player-label">Mohamed ElShorbagy</div>
+                            <div class="player-value p1">5.5 ft</div>
+                            <div class="player-unit">avg from T</div>
+                        </div>
+                        <div class="vs-divider">vs</div>
+                        <div class="player-stat">
+                            <div class="player-label">Ali Farag</div>
+                            <div class="player-value p2">9.9 ft</div>
+                            <div class="player-unit">avg from T</div>
+                        </div>
+                    </div>
+                    <div class="analysis-text">Farag is scrambling. He is forced nearly 2x further from the T on average, indicating he is under pressure.</div>
+                </div>
+
+                <!-- Running Score -->
+                <div class="analytics-card">
+                    <div class="analytics-header">
+                        <div class="analytics-title">
+                            <span class="analytics-icon">👟</span>
+                            Running Score
+                        </div>
+                        <div class="winner-badge">Farag Works Harder</div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">Total distance covered during the match — shows who is working harder physically.</p>
+                    <div class="player-comparison">
+                        <div class="player-stat">
+                            <div class="player-label">Mohamed ElShorbagy</div>
+                            <div class="player-value p1">10.9 ft</div>
+                            <div class="player-unit">total distance</div>
+                        </div>
+                        <div class="vs-divider">vs</div>
+                        <div class="player-stat">
+                            <div class="player-label">Ali Farag</div>
+                            <div class="player-value p2">17.5 ft</div>
+                            <div class="player-unit">total distance</div>
+                        </div>
+                    </div>
+                    <div class="analysis-text">Farag is working harder, covering significantly more ground to stay in rallies. This could lead to fatigue in longer matches.</div>
+                </div>
+
+                <!-- Attack Score -->
+                <div class="analytics-card">
+                    <div class="analytics-header">
+                        <div class="analytics-title">
+                            <span class="analytics-icon">⚡</span>
+                            Attack Score
+                        </div>
+                        <div class="winner-badge">ElShorbagy</div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">Number of aggressive, high-velocity shots that put the opponent under pressure.</p>
+                    <div class="player-comparison">
+                        <div class="player-stat">
+                            <div class="player-label">Mohamed ElShorbagy</div>
+                            <div class="player-value p1">197</div>
+                            <div class="player-unit">attacks</div>
+                        </div>
+                        <div class="vs-divider">vs</div>
+                        <div class="player-stat">
+                            <div class="player-label">Ali Farag</div>
+                            <div class="player-value p2">169</div>
+                            <div class="player-unit">attacks</div>
+                        </div>
+                    </div>
+                    <div class="comparison-bar">
+                        <div class="bar-p1" style="width: 54%"></div>
+                        <div class="bar-p2" style="width: 46%"></div>
+                    </div>
+                    <div class="analysis-text">ElShorbagy is more aggressive, generating more pace and pressure with attacking shots. This aligns with his T-dominance.</div>
+                </div>
+
+                <!-- TIGHT RAILS - NEW (Full Width) -->
+                <div class="analytics-card full-width">
+                    <div class="analytics-header">
+                        <div class="analytics-title">
+                            <span class="analytics-icon">🧱</span>
+                            Tight Rails (Ball-to-Wall Distance)
+                        </div>
+                        <div class="winner-badge">ElShorbagy Tighter</div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">How close shots are to the side wall — tighter rails are harder to retrieve and show better shot accuracy.</p>
+                    <div class="player-comparison">
+                        <div class="player-stat">
+                            <div class="player-label">Mohamed ElShorbagy</div>
+                            <div class="player-value p1">5.5 in</div>
+                            <div class="player-unit">avg from wall • 87 tight shots</div>
+                        </div>
+                        <div class="vs-divider">vs</div>
+                        <div class="player-stat">
+                            <div class="player-label">Ali Farag</div>
+                            <div class="player-value p2">8.9 in</div>
+                            <div class="player-unit">avg from wall • 54 tight shots</div>
+                        </div>
+                    </div>
+                    <div class="comparison-bar">
+                        <div class="bar-p1" style="width: 62%"></div>
+                        <div class="bar-p2" style="width: 38%"></div>
+                    </div>
+                    <div class="analysis-text">ElShorbagy is hitting tighter rails, keeping the ball closer to the wall and making retrieval more difficult for Farag. Lower distance = tighter rails = harder to retrieve.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAT SECTION -->
+        <div class="chat-section">
+            <div class="chat-card">
+                <div class="chat-header">
+                    <span style="font-size: 1.3rem;">💬</span>
+                    <h3>Ask About This Match</h3>
+                </div>
+                <div class="chat-suggestions">
+                    <span class="suggestion-chip">Who is winning?</span>
+                    <span class="suggestion-chip">Who controls the T?</span>
+                    <span class="suggestion-chip">Tighter rails?</span>
+                    <span class="suggestion-chip">More aggressive?</span>
+                    <span class="suggestion-chip">Under pressure?</span>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-message assistant">
+                        <div class="message-bubble">
+                            👋 Hi! I'm your squash match analyst. Ask me anything about this match - who's winning, tactical insights, or specific metrics!
+                        </div>
+                    </div>
+                    <div class="chat-message user">
+                        <div class="message-bubble">Who is winning this match?</div>
+                    </div>
+                    <div class="chat-message assistant">
+                        <div class="message-bubble">
+                            Based on the analytics, <strong>Mohamed ElShorbagy</strong> appears to have a clear advantage:<br><br>
+                            • <strong>T-Dominance:</strong> 62.6% vs 37.4% - ElShorbagy controls the center<br>
+                            • <strong>Scramble:</strong> Farag is forced 2x further from the T<br>
+                            • <strong>Attack:</strong> ElShorbagy has 197 vs 169 attacking shots<br>
+                            • <strong>Rails:</strong> ElShorbagy hitting tighter (42px vs 68px from wall)<br><br>
+                            ElShorbagy is dictating play and keeping Farag under constant pressure.
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" class="chat-input" id="chatInput" 
+                           placeholder="Ask about the match...">
+                    <button class="chat-send-btn">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DOWNLOADS -->
+        <div class="downloads-card">
+            <h2 class="section-title">📥 Download Results</h2>
+            <div class="downloads-grid">
+                <div class="download-item">
+                    <span class="download-icon">🎥</span>
+                    <div class="download-info">
+                        <div class="download-name">Annotated Video</div>
+                        <div class="download-desc">With detection overlays</div>
+                    </div>
+                    <span class="download-arrow">→</span>
+                </div>
+                <div class="download-item">
+                    <span class="download-icon">📊</span>
+                    <div class="download-info">
+                        <div class="download-name">Squash Analytics</div>
+                        <div class="download-desc">Complete analysis JSON</div>
+                    </div>
+                    <span class="download-arrow">→</span>
+                </div>
+                <div class="download-item">
+                    <span class="download-icon">📄</span>
+                    <div class="download-info">
+                        <div class="download-name">Detection Data</div>
+                        <div class="download-desc">Frame-by-frame data</div>
+                    </div>
+                    <span class="download-arrow">→</span>
+                </div>
+                <div class="download-item">
+                    <span class="download-icon">📝</span>
+                    <div class="download-info">
+                        <div class="download-name">Text Summary</div>
+                        <div class="download-desc">Human-readable</div>
+                    </div>
+                    <span class="download-arrow">→</span>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with love by Ben Schippers ❤️</p>
+        </footer>
+    </div>
+
+    <script>
+        // Simple interactivity for the sample page
+        document.querySelectorAll('.suggestion-chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                alert('Chat functionality works in the live version!\n\nThis is just a static sample page.');
+            });
+        });
+
+        document.querySelector('.chat-send-btn').addEventListener('click', function() {
+            const input = document.getElementById('chatInput');
+            if (input.value.trim()) {
+                alert('Chat functionality works in the live version!\n\nYou asked: "' + input.value + '"');
+                input.value = '';
+            }
+        });
+
+        document.querySelectorAll('.download-item').forEach(item => {
+            item.addEventListener('click', function() {
+                alert('Downloads work in the live version!\n\nThis is just a static sample page.');
+            });
+        });
+
+        // Update player names dynamically
+        document.getElementById('player1Name').addEventListener('input', function() {
+            // In a real implementation, this would update all labels
+            console.log('Player 1 name changed to:', this.value);
+        });
+
+        document.getElementById('player2Name').addEventListener('input', function() {
+            console.log('Player 2 name changed to:', this.value);
+        });
+    </script>
+</body>
+</html>
+
