@@ -5,6 +5,7 @@ Reusable video processing functions for YOLO object detection.
 """
 
 import os
+import sys
 
 # Disable OpenCV GUI features for headless environments
 # These must be set BEFORE importing cv2
@@ -12,6 +13,22 @@ os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 # Prevent OpenCV from trying to load libGL.so.1
 os.environ['OPENCV_DISABLE_OPENCL'] = '1'
+os.environ['OPENCV_VIDEOIO_PRIORITY_LIST'] = 'FFMPEG'
+
+# Workaround for Nix environments: try to set library path
+if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
+    current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+    nix_lib_paths = [
+        '/run/opengl-driver/lib',
+        '/nix/store/*/lib',
+    ]
+    # Add common Nix OpenGL library paths
+    additional_paths = [p for p in nix_lib_paths if os.path.exists(p.split('*')[0]) if '*' in p else os.path.exists(p)]
+    if additional_paths:
+        if current_ld_path:
+            os.environ['LD_LIBRARY_PATH'] = current_ld_path + ':' + ':'.join(additional_paths)
+        else:
+            os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths)
 
 try:
     import cv2
@@ -20,13 +37,12 @@ except ImportError as e:
         raise ImportError(
             "OpenCV failed to import due to missing libGL.so.1. "
             "This is a headless environment issue. "
-            "Ensure you're using 'opencv-python-headless' instead of 'opencv-python'. "
-            "If the issue persists, you may need to install system libraries: "
-            "libgl1-mesa-glx or libglib2.0-0"
+            "The nixpacks.toml should include 'libGL' and 'mesa' in nixPkgs. "
+            "Current nixPkgs should be: [\"python3\", \"gcc\", \"libGL\", \"mesa\"]. "
+            "Please update nixpacks.toml and redeploy."
         ) from e
     raise
 import json
-import os
 import time
 import numpy as np
 from datetime import datetime

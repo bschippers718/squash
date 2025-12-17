@@ -1,6 +1,11 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc"]
-env = { OPENCV_IO_ENABLE_OPENEXR = "0", QT_QPA_PLATFORM = "offscreen", OPENCV_DISABLE_OPENCL = "1" }
+nixPkgs = ["python3", "gcc", "libGL", "mesa"]
+env = { 
+  OPENCV_IO_ENABLE_OPENEXR = "0", 
+  QT_QPA_PLATFORM = "offscreen", 
+  OPENCV_DISABLE_OPENCL = "1",
+  OPENCV_VIDEOIO_PRIORITY_LIST = "FFMPEG"
+}
 
 [phases.install]
 cmds = [
