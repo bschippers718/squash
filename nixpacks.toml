@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc", "glibc", "mesa", "libglvnd"]
+nixPkgs = ["python3", "gcc", "glibc", "mesa", "libglvnd", "glib"]
 env = { OPENCV_IO_ENABLE_OPENEXR = "0", QT_QPA_PLATFORM = "offscreen", OPENCV_DISABLE_OPENCL = "1", OPENCV_VIDEOIO_PRIORITY_LIST = "FFMPEG" }
 
 [phases.install]
@@ -14,7 +14,10 @@ cmds = [
     "test -f /app/lib_stub/libGL.so.1 && (ln -sf libGL.so.1 /app/lib_stub/libGL.so && echo 'Stub library and symlink created successfully') || echo 'ERROR: Stub library not created'",
     "SYSTEM_LIBGL=$(find /nix/store -name 'libGL.so.1' -type f 2>/dev/null | head -1)",
     "if [ -n \"$SYSTEM_LIBGL\" ]; then echo \"Found system libGL: $SYSTEM_LIBGL\"; cp \"$SYSTEM_LIBGL\" /usr/lib/libGL.so.1 && ln -sf /usr/lib/libGL.so.1 /usr/lib/libGL.so && echo 'Copied system libGL to /usr/lib'; else echo 'No system libGL found, copying stub'; cp /app/lib_stub/libGL.so.1 /usr/lib/libGL.so.1 2>/dev/null || echo 'Failed to copy stub'; fi",
-    "test -f /usr/lib/libGL.so.1 && echo 'libGL.so.1 available in /usr/lib' || echo 'WARNING: libGL.so.1 not in /usr/lib'"
+    "SYSTEM_GLIB=$(find /nix/store -name 'libgthread-2.0.so.0' -type f 2>/dev/null | head -1)",
+    "if [ -n \"$SYSTEM_GLIB\" ]; then echo \"Found system glib: $SYSTEM_GLIB\"; GLIB_DIR=$(dirname \"$SYSTEM_GLIB\"); cp \"$SYSTEM_GLIB\" /usr/lib/libgthread-2.0.so.0 && echo 'Copied glib to /usr/lib'; find \"$GLIB_DIR\" -name 'libglib-2.0.so.0' -o -name 'libgobject-2.0.so.0' -o -name 'libgio-2.0.so.0' 2>/dev/null | head -3 | xargs -I {} cp {} /usr/lib/ 2>/dev/null || true; fi",
+    "test -f /usr/lib/libGL.so.1 && echo 'libGL.so.1 available in /usr/lib' || echo 'WARNING: libGL.so.1 not in /usr/lib'",
+    "test -f /usr/lib/libgthread-2.0.so.0 && echo 'libgthread-2.0.so.0 available in /usr/lib' || echo 'WARNING: libgthread-2.0.so.0 not in /usr/lib'"
 ]
 
 [start]

@@ -29,6 +29,15 @@ if os.path.exists(system_libgl):
     except Exception as e:
         print(f"[video_processor] Failed to preload {system_libgl}: {e}", flush=True)
 
+# Preload glib libraries
+system_glib = '/usr/lib/libgthread-2.0.so.0'
+if os.path.exists(system_glib):
+    try:
+        ctypes.CDLL(system_glib, mode=ctypes.RTLD_GLOBAL)
+        print(f"[video_processor] Preloaded libgthread-2.0.so.0", flush=True)
+    except Exception as e:
+        print(f"[video_processor] Failed to preload glib: {e}", flush=True)
+
 # Strategy 2: Try to find and preload from Nix store
 if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
     import subprocess
@@ -47,6 +56,22 @@ if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
                 print(f"[video_processor] Preloaded libGL.so.1 from Nix store: {nix_libgl}", flush=True)
             except Exception as e:
                 print(f"[video_processor] Failed to preload Nix libGL: {e}", flush=True)
+        
+        # Also find and preload glib from Nix store
+        result = subprocess.run(
+            ['find', '/nix/store', '-name', 'libgthread-2.0.so.0', '-type', 'f'],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            stderr=subprocess.DEVNULL
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            nix_glib = result.stdout.strip().split('\n')[0]
+            try:
+                ctypes.CDLL(nix_glib, mode=ctypes.RTLD_GLOBAL)
+                print(f"[video_processor] Preloaded libgthread-2.0.so.0 from Nix store", flush=True)
+            except Exception as e:
+                print(f"[video_processor] Failed to preload Nix glib: {e}", flush=True)
     except:
         pass
 
@@ -78,6 +103,19 @@ if '/nix' in sys.executable:
             lib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
             if lib_path not in additional_paths:
                 additional_paths.append(lib_path)
+        
+        # Also add glib paths
+        result = subprocess.run(
+            ['find', '/nix/store', '-name', 'libgthread-2.0.so.0', '-type', 'f'],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            stderr=subprocess.DEVNULL
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            glib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
+            if glib_path not in additional_paths:
+                additional_paths.append(glib_path)
     except:
         pass
 
@@ -94,7 +132,7 @@ try:
     import cv2
     print(f"[video_processor] OpenCV imported successfully. LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'not set')}", flush=True)
 except ImportError as e:
-    if 'libGL.so.1' in str(e) or 'libGL.so' in str(e):
+    if 'libGL.so.1' in str(e) or 'libGL.so' in str(e) or 'libgthread' in str(e) or 'libglib' in str(e):
         stub_exists = os.path.exists('/app/lib_stub/libGL.so.1')
         stub_symlink_exists = os.path.exists('/app/lib_stub/libGL.so')
         import subprocess
