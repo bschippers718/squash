@@ -51,11 +51,29 @@ def get_bbox_area(bbox):
 
 def identify_players(detections, video_width, video_height, min_confidence=0.5):
     """
-    Identify the two main players from detections.
-    Players are the two largest, highest-confidence person detections.
-    Returns player positions per frame.
+    Identify and CONSISTENTLY TRACK the two main players across all frames.
+    
+    Uses a hybrid approach:
+    1. Find the first frame with 2 well-separated players
+    2. Establish Player 1 = left player, Player 2 = right player (based on x-position)
+    3. For subsequent frames, use PROXIMITY TRACKING to maintain consistent identity
+       (assign each detection to the player whose last position is closest)
+    
+    This ensures that when players cross paths or swap sides, their stats
+    remain correctly attributed to the same person throughout the match.
     """
     frames_data = []
+    
+    # Track last known positions for each player (for proximity-based assignment)
+    p1_last_pos = None  # Player 1 (initially on left)
+    p2_last_pos = None  # Player 2 (initially on right)
+    identity_established = False
+    
+    # Maximum distance a player can move between frames (sanity check)
+    # At 30fps, a player sprinting at 8m/s moves ~0.27m per frame
+    # On a 1920px wide video representing ~6.4m court, that's ~80px per frame
+    # We'll be generous and allow 150px to account for frame skipping
+    max_movement_per_frame = video_width * 0.15  # 15% of video width
     
     for frame in detections:
         frame_num = frame.get('frame_number', 0)
@@ -71,8 +89,18 @@ def identify_players(detections, video_width, video_height, min_confidence=0.5):
         # Sort by area (largest first) - main players are usually larger
         persons.sort(key=lambda x: get_bbox_area(x['bbox']), reverse=True)
         
-        # Take top 2 persons as players
-        players = persons[:2] if len(persons) >= 2 else persons
+        # Take top 2 persons as potential players
+        candidates = persons[:2] if len(persons) >= 2 else persons
+        
+        # Calculate centers for candidates
+        candidate_data = []
+        for p in candidates:
+            center = calculate_center(p['bbox'])
+            candidate_data.append({
+                'center': center,
+                'bbox': p['bbox'],
+                'confidence': p['confidence']
+            })
         
         frame_data = {
             'frame': frame_num,
@@ -80,14 +108,109 @@ def identify_players(detections, video_width, video_height, min_confidence=0.5):
             'players': []
         }
         
-        for i, player in enumerate(players):
-            center = calculate_center(player['bbox'])
-            frame_data['players'].append({
-                'id': i,
-                'center': center,
-                'bbox': player['bbox'],
-                'confidence': player['confidence']
-            })
+        if not identity_established:
+            # PHASE 1: Establish player identities from first good frame
+            if len(candidate_data) >= 2:
+                # Sort by x-position: left = Player 1, right = Player 2
+                candidate_data.sort(key=lambda p: p['center'][0])
+                
+                # Check if players are well-separated (at least 20% of video width apart)
+                separation = abs(candidate_data[1]['center'][0] - candidate_data[0]['center'][0])
+                if separation > video_width * 0.2:
+                    # Good separation - establish identities
+                    p1_last_pos = candidate_data[0]['center']
+                    p2_last_pos = candidate_data[1]['center']
+                    identity_established = True
+                    
+                    # Add players to frame data with consistent IDs
+                    frame_data['players'] = [
+                        {'id': 0, 'center': p1_last_pos, 'bbox': candidate_data[0]['bbox'], 
+                         'confidence': candidate_data[0]['confidence']},
+                        {'id': 1, 'center': p2_last_pos, 'bbox': candidate_data[1]['bbox'], 
+                         'confidence': candidate_data[1]['confidence']}
+                    ]
+                else:
+                    # Players too close together - just use x-position for now
+                    candidate_data.sort(key=lambda p: p['center'][0])
+                    for i, c in enumerate(candidate_data):
+                        frame_data['players'].append({
+                            'id': i, 'center': c['center'], 'bbox': c['bbox'], 
+                            'confidence': c['confidence']
+                        })
+            elif len(candidate_data) == 1:
+                # Only one player - can't establish identity yet
+                frame_data['players'].append({
+                    'id': 0, 'center': candidate_data[0]['center'], 
+                    'bbox': candidate_data[0]['bbox'], 
+                    'confidence': candidate_data[0]['confidence']
+                })
+        else:
+            # PHASE 2: Use proximity tracking to maintain consistent identity
+            if len(candidate_data) >= 2:
+                # Calculate distances from each candidate to each player's last position
+                c0_to_p1 = calculate_distance(candidate_data[0]['center'], p1_last_pos)
+                c0_to_p2 = calculate_distance(candidate_data[0]['center'], p2_last_pos)
+                c1_to_p1 = calculate_distance(candidate_data[1]['center'], p1_last_pos)
+                c1_to_p2 = calculate_distance(candidate_data[1]['center'], p2_last_pos)
+                
+                # Determine best assignment (minimize total distance)
+                # Option A: c0 -> P1, c1 -> P2
+                dist_option_a = c0_to_p1 + c1_to_p2
+                # Option B: c0 -> P2, c1 -> P1
+                dist_option_b = c0_to_p2 + c1_to_p1
+                
+                if dist_option_a <= dist_option_b:
+                    # Candidate 0 is Player 1, Candidate 1 is Player 2
+                    p1_data = candidate_data[0]
+                    p2_data = candidate_data[1]
+                else:
+                    # Candidate 0 is Player 2, Candidate 1 is Player 1
+                    p1_data = candidate_data[1]
+                    p2_data = candidate_data[0]
+                
+                # Sanity check: if both players would have moved too far, 
+                # fall back to x-position (might be a detection glitch)
+                p1_movement = calculate_distance(p1_data['center'], p1_last_pos)
+                p2_movement = calculate_distance(p2_data['center'], p2_last_pos)
+                
+                if p1_movement > max_movement_per_frame and p2_movement > max_movement_per_frame:
+                    # Both moved too far - something's wrong, use x-position as fallback
+                    candidate_data.sort(key=lambda p: p['center'][0])
+                    p1_data = candidate_data[0]
+                    p2_data = candidate_data[1]
+                
+                # Update last known positions
+                p1_last_pos = p1_data['center']
+                p2_last_pos = p2_data['center']
+                
+                frame_data['players'] = [
+                    {'id': 0, 'center': p1_data['center'], 'bbox': p1_data['bbox'], 
+                     'confidence': p1_data['confidence']},
+                    {'id': 1, 'center': p2_data['center'], 'bbox': p2_data['bbox'], 
+                     'confidence': p2_data['confidence']}
+                ]
+                
+            elif len(candidate_data) == 1:
+                # Only one player detected - assign to closest last position
+                c = candidate_data[0]
+                dist_to_p1 = calculate_distance(c['center'], p1_last_pos)
+                dist_to_p2 = calculate_distance(c['center'], p2_last_pos)
+                
+                if dist_to_p1 <= dist_to_p2:
+                    # This is Player 1
+                    p1_last_pos = c['center']
+                    frame_data['players'].append({
+                        'id': 0, 'center': c['center'], 'bbox': c['bbox'], 
+                        'confidence': c['confidence']
+                    })
+                else:
+                    # This is Player 2
+                    p2_last_pos = c['center']
+                    frame_data['players'].append({
+                        'id': 1, 'center': c['center'], 'bbox': c['bbox'], 
+                        'confidence': c['confidence']
+                    })
+            # If no candidates, keep last known positions (no update needed)
         
         # Also track ball/racket
         balls = [obj for obj in objects if obj['class'] == 'sports ball']
@@ -151,8 +274,8 @@ def analyze_tight_rails(frames_data, video_width, video_height):
         if not ball_center:
             continue
         
-        # Sort players by x position (left = p1, right = p2)
-        players.sort(key=lambda p: p['center'][0])
+        # Players are already consistently tracked - sort by id for consistent ordering
+        players.sort(key=lambda p: p.get('id', 0))
         
         # Calculate wall distances
         wall_dist = calculate_wall_distances(ball_bbox, video_width, video_height)
@@ -785,8 +908,10 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             
         frames_with_both_players += 1
         
-        # Sort players by x position to maintain consistency (left = player1, right = player2)
-        players.sort(key=lambda p: p['center'][0])
+        # Players are already consistently tracked by identify_players() using proximity tracking
+        # Player with id=0 is always Player 1 (initially on left), id=1 is Player 2 (initially on right)
+        # Sort by id to ensure consistent ordering
+        players.sort(key=lambda p: p.get('id', 0))
         
         # Calculate average confidence for this frame (for weighted metrics)
         frame_confidence = sum(p.get('confidence', 0.5) for p in players[:2]) / 2
@@ -1333,8 +1458,8 @@ def analyze_rally_shots(frames_data, rally, fps, video_width, video_height):
         if len(players) < 2:
             continue
         
-        # Sort players by x position (left = p1, right = p2)
-        players_sorted = sorted(players[:2], key=lambda p: p['center'][0])
+        # Players are already consistently tracked - sort by id for consistent ordering
+        players_sorted = sorted(players[:2], key=lambda p: p.get('id', 0))
         
         if ball_center:
             # Determine which player is closest to ball (likely hitting)
