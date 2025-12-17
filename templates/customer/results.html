@@ -54,7 +54,8 @@
         }
         
         .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-        .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #6366f1); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .logo-icon { width: 40px; height: 40px; background: transparent; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        .logo-icon img { width: 32px; height: 32px; }
         .logo-text { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
         .new-upload-btn {
@@ -325,7 +326,7 @@
 
         <header>
             <a href="/" class="logo">
-                <div class="logo-icon">🎯</div>
+                <div class="logo-icon"><img src="/static/squash-ball.svg" alt="Squash Ball"></div>
             <div class="logo-text">Squash.AI</div>
             </a>
             <a href="/" class="new-upload-btn">+ New Analysis</a>
@@ -371,7 +372,7 @@
             },
             padel: {
                 name: 'Padel',
-                icon: '🏸',
+                icon: '<img src="/static/squash-ball.svg" alt="" style="width: 20px; height: 20px; vertical-align: middle;">',
                 t_dominance: 'Net Control',
                 t_desc: 'Percentage of time each player controls the net position — the most dominant court position in padel.',
                 scramble: 'Defense Score',
@@ -484,7 +485,7 @@
             }
             
             // T-Dominance section
-            summary += `<br><br><strong>🎯 Court Control & The T:</strong> <span class="highlight-p1">${tDomWinner}</span> controlled the T <strong>${winnerTDom.toFixed(1)}%</strong> of the time compared to ${loserTDom.toFixed(1)}% for <span class="highlight-p2">${tDomLoser}</span>. `;
+            summary += `<br><br><strong><img src="/static/squash-ball.svg" alt="" style="width: 16px; height: 16px; vertical-align: middle;"> Court Control & The T:</strong> <span class="highlight-p1">${tDomWinner}</span> controlled the T <strong>${winnerTDom.toFixed(1)}%</strong> of the time compared to ${loserTDom.toFixed(1)}% for <span class="highlight-p2">${tDomLoser}</span>. `;
             
             if (tDomDiff >= 20) {
                 summary += `This <strong>${tDomDiff.toFixed(0)} percentage point gap</strong> is significant — <span class="highlight-p1">${tDomWinner}</span> was able to volley early, cut off angles, and force <span class="highlight-p2">${tDomLoser}</span> into the back corners repeatedly. When a player owns the T this decisively, they're essentially playing "downhill" — making their opponent do all the hard work.`;
@@ -876,7 +877,7 @@
                         <!-- T-Dominance -->
                         <div class="metric-card">
                             <div class="metric-header">
-                                <span class="metric-name">🎯 ${labels.t_dominance}</span>
+                                <span class="metric-name"><img src="/static/squash-ball.svg" alt="" style="width: 18px; height: 18px; vertical-align: middle;"> ${labels.t_dominance}</span>
                                 <span class="metric-winner ${getWinnerClass(p1TDom, p2TDom)}" id="tDomWinner">${getWinnerName(p1TDom, p2TDom)}</span>
                     </div>
                             <p class="metric-desc">${labels.t_desc}</p>

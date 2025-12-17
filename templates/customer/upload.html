@@ -56,10 +56,14 @@
 
         .logo-icon {
             width: 50px; height: 50px;
-            background: linear-gradient(135deg, var(--accent), #6366f1);
+            background: transparent;
             border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 24px;
+        }
+        
+        .logo-icon img {
+            width: 40px;
+            height: 40px;
         }
 
         .logo-text {
@@ -603,7 +607,7 @@
     <div class="container">
         <header>
             <div class="logo">
-                <div class="logo-icon">🏸</div>
+                <div class="logo-icon"><img src="/static/squash-ball.svg" alt="Squash Ball"></div>
                 <span class="logo-text">Squash.AI</span>
             </div>
             <h1>Smart Match Analysis</h1>
@@ -634,7 +638,7 @@
                     <div class="sport-option">
                         <input type="radio" name="sport" id="sport-padel" value="padel">
                         <label for="sport-padel">
-                            <span class="sport-icon">🏸</span>
+                            <span class="sport-icon"><img src="/static/squash-ball.svg" alt="" style="width: 24px; height: 24px; vertical-align: middle;"></span>
                             <span class="sport-name">Padel</span>
                         </label>
                     </div>
@@ -1039,7 +1043,8 @@
                     // Use custom name if available, otherwise use job name
                     const displayName = customNames[job.id] || job.name || job.filename || job.id;
                     const squashSvg = '<svg viewBox="0 0 493.415 493.415" style="width: 14px; height: 14px; vertical-align: middle;"><circle cx="246.708" cy="246.703" r="246.703" fill="#1a1a25"/><circle cx="291.68" cy="145.369" r="22.491" fill="#ffd700"/><circle cx="269.199" cy="236.681" r="22.491" fill="#ffd700"/></svg>';
-                    const sport = job.sport ? (job.sport === 'squash' ? squashSvg + ' Squash' : '🏸 Padel') : '';
+                    const padelSvg = '<img src="/static/squash-ball.svg" alt="" style="width: 14px; height: 14px; vertical-align: middle;">';
+                    const sport = job.sport ? (job.sport === 'squash' ? squashSvg + ' Squash' : padelSvg + ' Padel') : '';
                     const duration = job.duration ? formatDuration(job.duration) : '';
                     const date = job.created_at ? formatDate(job.created_at) : '';
                     
