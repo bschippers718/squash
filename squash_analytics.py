@@ -280,21 +280,34 @@ def analyze_tight_rails(frames_data, video_width, video_height):
         rail_winner = 'Even'
         rail_analysis = "Both players are hitting rails with similar tightness. Neither has a clear advantage in wall proximity."
     
+    # Calculate percentage of court width (resolution-independent)
+    # A squash court is ~21 feet wide, so we can estimate feet from percentage
+    SQUASH_COURT_WIDTH_FT = 21.0
+    p1_pct = (p1_avg_rail / video_width * 100) if p1_avg_rail > 0 else -1
+    p2_pct = (p2_avg_rail / video_width * 100) if p2_avg_rail > 0 else -1
+    p1_feet = (p1_pct / 100 * SQUASH_COURT_WIDTH_FT) if p1_pct > 0 else -1
+    p2_feet = (p2_pct / 100 * SQUASH_COURT_WIDTH_FT) if p2_pct > 0 else -1
+    
     return {
         'player1': {
-            'avg_wall_distance': round(p1_avg_rail, 1),
+            'avg_wall_distance': round(p1_avg_rail, 1),  # Keep raw pixels for backwards compat
+            'avg_wall_distance_pct': round(p1_pct, 1) if p1_pct > 0 else -1,
+            'avg_wall_distance_ft': round(p1_feet, 1) if p1_feet > 0 else -1,
             'tight_rail_count': p1_tight_count,
             'total_shots_analyzed': len(p1_rail_distances)
         },
         'player2': {
             'avg_wall_distance': round(p2_avg_rail, 1),
+            'avg_wall_distance_pct': round(p2_pct, 1) if p2_pct > 0 else -1,
+            'avg_wall_distance_ft': round(p2_feet, 1) if p2_feet > 0 else -1,
             'tight_rail_count': p2_tight_count,
             'total_shots_analyzed': len(p2_rail_distances)
         },
         'analysis': {
             'winner': rail_winner,
             'summary': rail_analysis
-        }
+        },
+        'video_width': video_width  # Store for reference
     }
 
 # =============================================================================
@@ -955,6 +968,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             't_dominance': round(p1_t_dominance, 1),
             'attack_score': p1_attacks,
             'avg_rail_distance': tight_rails['player1']['avg_wall_distance'],
+            'avg_rail_distance_pct': tight_rails['player1'].get('avg_wall_distance_pct', -1),
+            'avg_rail_distance_ft': tight_rails['player1'].get('avg_wall_distance_ft', -1),
             'tight_rail_count': tight_rails['player1']['tight_rail_count']
         },
         'player2': {
@@ -964,6 +979,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             't_dominance': round(p2_t_dominance, 1),
             'attack_score': p2_attacks,
             'avg_rail_distance': tight_rails['player2']['avg_wall_distance'],
+            'avg_rail_distance_pct': tight_rails['player2'].get('avg_wall_distance_pct', -1),
+            'avg_rail_distance_ft': tight_rails['player2'].get('avg_wall_distance_ft', -1),
             'tight_rail_count': tight_rails['player2']['tight_rail_count']
         },
         'analysis': {

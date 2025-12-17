@@ -458,12 +458,15 @@
             const attackLoserVal = Math.min(p1Attacks, p2Attacks);
             const attackPercent = totalAttacks > 0 ? ((attackWinnerVal / totalAttacks) * 100).toFixed(0) : 50;
             
-            // Get rail data - convert pixels to feet (using same 30px = 1ft conversion)
+            // Get rail data - use pre-calculated feet values, or fall back to percentage-based estimate
             // Support both single game (tight_rail_count) and combined match (total_tight_rails) field names
-            const p1RailPx = p1.avg_rail_distance ?? -1;
-            const p2RailPx = p2.avg_rail_distance ?? -1;
-            const p1Rail = p1RailPx > 0 ? p1RailPx / 30 : -1;  // Convert pixels to feet
-            const p2Rail = p2RailPx > 0 ? p2RailPx / 30 : -1;
+            const p1RailFt = p1.avg_rail_distance_ft ?? -1;
+            const p2RailFt = p2.avg_rail_distance_ft ?? -1;
+            const p1RailPct = p1.avg_rail_distance_pct ?? -1;
+            const p2RailPct = p2.avg_rail_distance_pct ?? -1;
+            // Use feet if available, otherwise estimate from percentage (squash court is ~21ft wide)
+            const p1Rail = p1RailFt > 0 ? p1RailFt : (p1RailPct > 0 ? p1RailPct / 100 * 21 : -1);
+            const p2Rail = p2RailFt > 0 ? p2RailFt : (p2RailPct > 0 ? p2RailPct / 100 * 21 : -1);
             const p1TightRails = p1.tight_rail_count ?? p1.total_tight_rails ?? 0;
             const p2TightRails = p2.tight_rail_count ?? p2.total_tight_rails ?? 0;
             
@@ -628,11 +631,13 @@
             const p2Running = p2.total_running_score ?? p2.running_score ?? 0;
             const p1Attacks = p1.total_attack_score ?? p1.attack_score ?? 0;
             const p2Attacks = p2.total_attack_score ?? p2.attack_score ?? 0;
-            // Rail data - convert pixels to feet (same 30px = 1ft as other metrics)
-            const p1RailPx = p1.avg_rail_distance ?? 0;
-            const p2RailPx = p2.avg_rail_distance ?? 0;
-            const p1Rail = p1RailPx > 0 ? p1RailPx / 30 : 0;
-            const p2Rail = p2RailPx > 0 ? p2RailPx / 30 : 0;
+            // Rail data - use pre-calculated feet values, or estimate from percentage
+            const p1RailFt = p1.avg_rail_distance_ft ?? -1;
+            const p2RailFt = p2.avg_rail_distance_ft ?? -1;
+            const p1RailPct = p1.avg_rail_distance_pct ?? -1;
+            const p2RailPct = p2.avg_rail_distance_pct ?? -1;
+            const p1Rail = p1RailFt > 0 ? p1RailFt : (p1RailPct > 0 ? p1RailPct / 100 * 21 : 0);
+            const p2Rail = p2RailFt > 0 ? p2RailFt : (p2RailPct > 0 ? p2RailPct / 100 * 21 : 0);
             // Support both field names for tight rail count
             const p1TightRails = p1.tight_rail_count ?? p1.total_tight_rails ?? 0;
             const p2TightRails = p2.tight_rail_count ?? p2.total_tight_rails ?? 0;
