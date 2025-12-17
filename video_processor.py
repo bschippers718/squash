@@ -15,12 +15,21 @@ os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 os.environ['OPENCV_DISABLE_OPENCL'] = '1'
 os.environ['OPENCV_VIDEOIO_PRIORITY_LIST'] = 'FFMPEG'
 
-# CRITICAL: Set library path BEFORE importing cv2
-# Priority: 1) System Mesa libraries (if available), 2) Stub library
-current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-additional_paths = []
+# CRITICAL: Preload libGL.so.1 BEFORE importing cv2
+# Try multiple strategies to ensure OpenCV can find the library
+import ctypes
+import ctypes.util
 
-# First priority: Try to find real Mesa libGL in Nix store
+# Strategy 1: Try to preload from system location
+system_libgl = '/usr/lib/libGL.so.1'
+if os.path.exists(system_libgl):
+    try:
+        ctypes.CDLL(system_libgl, mode=ctypes.RTLD_GLOBAL)
+        print(f"[video_processor] Preloaded libGL.so.1 from {system_libgl}", flush=True)
+    except Exception as e:
+        print(f"[video_processor] Failed to preload {system_libgl}: {e}", flush=True)
+
+# Strategy 2: Try to find and preload from Nix store
 if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
     import subprocess
     try:
@@ -28,41 +37,58 @@ if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
             ['find', '/nix/store', '-name', 'libGL.so.1', '-type', 'f'],
             capture_output=True,
             text=True,
-            timeout=3,
+            timeout=2,
+            stderr=subprocess.DEVNULL
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            nix_libgl = result.stdout.strip().split('\n')[0]
+            try:
+                ctypes.CDLL(nix_libgl, mode=ctypes.RTLD_GLOBAL)
+                print(f"[video_processor] Preloaded libGL.so.1 from Nix store: {nix_libgl}", flush=True)
+            except Exception as e:
+                print(f"[video_processor] Failed to preload Nix libGL: {e}", flush=True)
+    except:
+        pass
+
+# Strategy 3: Try stub library
+stub_libgl = '/app/lib_stub/libGL.so.1'
+if os.path.exists(stub_libgl):
+    try:
+        ctypes.CDLL(stub_libgl, mode=ctypes.RTLD_GLOBAL)
+        print(f"[video_processor] Preloaded stub libGL.so.1", flush=True)
+    except Exception as e:
+        print(f"[video_processor] Failed to preload stub: {e}", flush=True)
+
+# Strategy 4: Set LD_LIBRARY_PATH as backup
+current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+additional_paths = ['/usr/lib', '/usr/lib/x86_64-linux-gnu']
+
+# Add Nix store paths if found
+if '/nix' in sys.executable:
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['find', '/nix/store', '-name', 'libGL.so.1', '-type', 'f'],
+            capture_output=True,
+            text=True,
+            timeout=2,
             stderr=subprocess.DEVNULL
         )
         if result.returncode == 0 and result.stdout.strip():
             lib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
-            if lib_path and lib_path not in additional_paths:
+            if lib_path not in additional_paths:
                 additional_paths.append(lib_path)
-                print(f"[video_processor] Found system libGL.so.1 at {lib_path}", flush=True)
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+    except:
         pass
-    
-    # Also check common paths
-    nix_lib_paths = ['/run/opengl-driver/lib']
-    for path in nix_lib_paths:
-        if os.path.exists(path):
-            lib_gl_path = os.path.join(path, 'libGL.so.1')
-            if os.path.exists(lib_gl_path):
-                lib_dir = os.path.dirname(lib_gl_path)
-                if lib_dir not in additional_paths:
-                    additional_paths.append(lib_dir)
 
-# Fallback: Use stub library if no system library found
-stub_lib_path = '/app/lib_stub'
-stub_lib_file = os.path.join(stub_lib_path, 'libGL.so.1')
-if not additional_paths and os.path.exists(stub_lib_file):
-    if stub_lib_path not in additional_paths:
-        additional_paths.append(stub_lib_path)
-    print(f"[video_processor] Using stub libGL.so.1 from {stub_lib_path}", flush=True)
+# Add stub path
+if '/app/lib_stub' not in additional_paths:
+    additional_paths.append('/app/lib_stub')
 
-# Update LD_LIBRARY_PATH with found paths
-if additional_paths:
-    if current_ld_path:
-        os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths) + ':' + current_ld_path
-    else:
-        os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths)
+if current_ld_path:
+    os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths) + ':' + current_ld_path
+else:
+    os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths)
 
 try:
     import cv2
