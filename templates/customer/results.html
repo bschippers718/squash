@@ -672,17 +672,33 @@
                 const frameSources = [];
                 gameJobs.forEach((gj, i) => {
                     if (gj.job_id) {
-                        let vn = (gj.video_name || gj.filename || '').replace(/\.[^/.]+$/, '');
-                        // Remove job_id prefix if present to avoid doubling (e.g., "41f20c93_GH010075" -> "GH010075")
-                        if (vn.startsWith(gj.job_id + '_')) {
-                            vn = vn.substring(gj.job_id.length + 1);
+                        // Get the original video_name (may include job_id prefix already)
+                        let vnOriginal = (gj.video_name || gj.filename || '').replace(/\.[^/.]+$/, '');
+                        // Create a version without job_id prefix
+                        let vnClean = vnOriginal;
+                        if (vnClean.startsWith(gj.job_id + '_')) {
+                            vnClean = vnClean.substring(gj.job_id.length + 1);
                         }
-                        // Try the full pattern first (job_id_videoname_players.jpg)
-                        if (vn) frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${gj.job_id}_${vn}_players.jpg`, label: vn || `Game ${i+1}` });
-                        // Also try without video name as fallback
+                        
+                        // Try multiple patterns - the file is saved as {video_name}_players.jpg
+                        // where video_name = Path(video_path).stem = "{job_id}_{original_filename}"
+                        // So the actual file is: {job_id}_{original_filename}_players.jpg
+                        
+                        // Pattern 1: Use original video_name directly (e.g., "7acd5dd0_Screen_Recording_players.jpg")
+                        if (vnOriginal) {
+                            frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${vnOriginal}_players.jpg`, label: vnClean || `Game ${i+1}` });
+                        }
+                        // Pattern 2: job_id + clean name (e.g., "7acd5dd0_Screen_Recording_players.jpg")
+                        if (vnClean) {
+                            frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${gj.job_id}_${vnClean}_players.jpg`, label: vnClean || `Game ${i+1}` });
+                        }
+                        // Pattern 3: Just job_id (fallback)
                         frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${gj.job_id}_players.jpg`, label: `Game ${i+1}` });
                     }
                 });
+                
+                // Log for debugging
+                console.log('Multi-game player frame sources:', frameSources);
                 
                 if (frameSources.length > 0) {
                     playerFrameHtml = `
@@ -693,13 +709,22 @@
                     playerFrameHtml = `<div class="player-id-frame-placeholder">Player frame not available</div>`;
                 }
             } else {
+                // Get filename without extension for pattern matching
+                const filenameNoExt = (jobData.filename || '').replace(/\.[^/.]+$/, '');
+                
                 // Try multiple filename patterns as fallbacks
+                // The file is saved as: {video_name}_players.jpg where video_name = Path(video_path).stem
+                // video_path = uploads/{job_id}_{original_filename}, so video_name = {job_id}_{original_filename_no_ext}
                 const framePaths = [
                     `/results/${jobId}/files/${videoNameWithPrefix}_players.jpg`,
                     `/results/${jobId}/files/${jobId}_${videoName}_players.jpg`,
+                    `/results/${jobId}/files/${jobId}_${filenameNoExt}_players.jpg`,
                     `/results/${jobId}/files/${videoName}_players.jpg`,
-                    `/results/${jobId}/files/${jobData.filename || jobId}_players.jpg`
+                    `/results/${jobId}/files/${filenameNoExt}_players.jpg`
                 ];
+                
+                // Log for debugging
+                console.log('Player frame paths to try:', framePaths);
                 
                 playerFrameHtml = `
                     <img id="playerFrameImg" src="${framePaths[0]}" alt="Player identification frame" 
