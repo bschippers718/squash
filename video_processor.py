@@ -15,59 +15,68 @@ os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 os.environ['OPENCV_DISABLE_OPENCL'] = '1'
 os.environ['OPENCV_VIDEOIO_PRIORITY_LIST'] = 'FFMPEG'
 
-# Workaround for Nix environments: try to set library path
-if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
-    import subprocess
-    current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-    additional_paths = []
-    
-    # Try to find libGL.so.1 in common Nix locations
-    nix_lib_paths = [
-        '/run/opengl-driver/lib',
-        '/nix/store',
-    ]
-    
-    # Search for libGL in Nix store
-    try:
-        result = subprocess.run(
-            ['find', '/nix/store', '-name', 'libGL.so.1', '-type', 'f'],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            stderr=subprocess.DEVNULL
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            lib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
-            if lib_path and lib_path not in additional_paths:
-                additional_paths.append(lib_path)
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-        pass
-    
-    # Also check common paths
-    for path in nix_lib_paths:
-        if os.path.exists(path):
-            lib_gl_path = os.path.join(path, 'libGL.so.1')
-            if os.path.exists(lib_gl_path):
-                lib_dir = os.path.dirname(lib_gl_path)
-                if lib_dir not in additional_paths:
-                    additional_paths.append(lib_dir)
-    
-    if additional_paths:
-        if current_ld_path:
-            os.environ['LD_LIBRARY_PATH'] = current_ld_path + ':' + ':'.join(additional_paths)
-        else:
-            os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths)
+# CRITICAL: Set library path BEFORE importing cv2
+# Priority: 1) Stub library, 2) System libraries
+stub_lib_path = '/app/lib_stub'
+stub_lib_file = os.path.join(stub_lib_path, 'libGL.so.1')
+current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+
+# First priority: Use stub library if it exists
+if os.path.exists(stub_lib_file):
+    if stub_lib_path not in current_ld_path:
+        os.environ['LD_LIBRARY_PATH'] = f"{stub_lib_path}:{current_ld_path}" if current_ld_path else stub_lib_path
+        current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+    print(f"[video_processor] Using stub libGL.so.1 from {stub_lib_path}", flush=True)
+else:
+    # Fallback: Try to find libGL in Nix store or system
+    if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
+        import subprocess
+        additional_paths = []
+        
+        # Search for libGL in Nix store
+        try:
+            result = subprocess.run(
+                ['find', '/nix/store', '-name', 'libGL.so.1', '-type', 'f'],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                stderr=subprocess.DEVNULL
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                lib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
+                if lib_path and lib_path not in additional_paths:
+                    additional_paths.append(lib_path)
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+            pass
+        
+        # Also check common paths
+        nix_lib_paths = ['/run/opengl-driver/lib']
+        for path in nix_lib_paths:
+            if os.path.exists(path):
+                lib_gl_path = os.path.join(path, 'libGL.so.1')
+                if os.path.exists(lib_gl_path):
+                    lib_dir = os.path.dirname(lib_gl_path)
+                    if lib_dir not in additional_paths:
+                        additional_paths.append(lib_dir)
+        
+        if additional_paths:
+            if current_ld_path:
+                os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths) + ':' + current_ld_path
+            else:
+                os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths)
+            print(f"[video_processor] Using system libGL.so.1 from {additional_paths}", flush=True)
 
 try:
     import cv2
+    print(f"[video_processor] OpenCV imported successfully. LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'not set')}", flush=True)
 except ImportError as e:
     if 'libGL.so.1' in str(e):
+        stub_exists = os.path.exists('/app/lib_stub/libGL.so.1')
         raise ImportError(
-            "OpenCV failed to import due to missing libGL.so.1. "
-            "This is a headless environment issue. "
-            "The nixpacks.toml should include 'libGL' and 'mesa' in nixPkgs. "
-            "Current nixPkgs should be: [\"python3\", \"gcc\", \"libGL\", \"mesa\"]. "
-            "Please update nixpacks.toml and redeploy."
+            f"OpenCV failed to import due to missing libGL.so.1. "
+            f"Stub library exists: {stub_exists}. "
+            f"LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'not set')}. "
+            f"If stub exists, check that it's in LD_LIBRARY_PATH."
         ) from e
     raise
 import json

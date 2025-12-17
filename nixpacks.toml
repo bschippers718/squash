@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc", "mesa", "libglvnd"]
+nixPkgs = ["python3", "gcc", "glibc"]
 env = { OPENCV_IO_ENABLE_OPENEXR = "0", QT_QPA_PLATFORM = "offscreen", OPENCV_DISABLE_OPENCL = "1", OPENCV_VIDEOIO_PRIORITY_LIST = "FFMPEG" }
 
 [phases.install]
@@ -8,9 +8,11 @@ cmds = [
     ". /opt/venv/bin/activate && pip install --upgrade pip",
     ". /opt/venv/bin/activate && pip uninstall -y opencv-python opencv-contrib-python || true",
     ". /opt/venv/bin/activate && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu",
-    ". /opt/venv/bin/activate && pip install flask werkzeug google-generativeai ultralytics opencv-python-headless"
+    ". /opt/venv/bin/activate && pip install flask werkzeug google-generativeai ultralytics opencv-python-headless",
+    "mkdir -p /app/lib_stub",
+    "gcc -shared -fPIC -o /app/lib_stub/libGL.so.1 /app/libgl_stub.c -ldl || (echo 'Warning: Stub library compilation failed, trying alternative...' && gcc -shared -fPIC -Wl,-soname,libGL.so.1 -o /app/lib_stub/libGL.so.1 /app/libgl_stub.c -ldl || echo 'Stub compilation failed, will try system libraries')"
 ]
 
 [start]
-cmd = "python customer_app.py"
+cmd = "export LD_LIBRARY_PATH=/app/lib_stub:$LD_LIBRARY_PATH && python customer_app.py"
 

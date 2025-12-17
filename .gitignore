@@ -42,3 +42,8 @@ Thumbs.db
 # Logs
 *.log
 .vercel
+
+# Compiled stub libraries
+lib_stub/
+*.so
+*.so.1
