@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc", "glibc"]
+nixPkgs = ["python3", "gcc", "glibc", "mesa", "libglvnd"]
 env = { OPENCV_IO_ENABLE_OPENEXR = "0", QT_QPA_PLATFORM = "offscreen", OPENCV_DISABLE_OPENCL = "1", OPENCV_VIDEOIO_PRIORITY_LIST = "FFMPEG" }
 
 [phases.install]
@@ -12,9 +12,11 @@ cmds = [
     "mkdir -p /app/lib_stub",
     "gcc -shared -fPIC -Wl,-soname,libGL.so.1 -o /app/lib_stub/libGL.so.1 /app/libgl_stub.c -ldl || (echo 'Warning: Stub library compilation failed, trying without soname...' && gcc -shared -fPIC -o /app/lib_stub/libGL.so.1 /app/libgl_stub.c -ldl || echo 'Stub compilation failed')",
     "test -f /app/lib_stub/libGL.so.1 && (ln -sf libGL.so.1 /app/lib_stub/libGL.so && echo 'Stub library and symlink created successfully') || echo 'ERROR: Stub library not created'",
-    "nm -D /app/lib_stub/libGL.so.1 2>/dev/null | grep -E 'glX|gl[A-Z]' | head -5 || echo 'Symbol check skipped'"
+    "nm -D /app/lib_stub/libGL.so.1 2>/dev/null | grep -E 'glX|gl[A-Z]' | head -5 || echo 'Symbol check skipped'",
+    "find /nix/store -name 'libGL.so.1' -type f 2>/dev/null | head -1 | xargs -I {} sh -c 'echo \"Found system libGL.so.1: {}\" && dirname {}' | head -1 > /tmp/libgl_path.txt || echo 'System libGL not found'",
+    "if [ -s /tmp/libgl_path.txt ]; then LIBGL_PATH=$(cat /tmp/libgl_path.txt); echo \"System libGL path: $LIBGL_PATH\"; else echo 'No system libGL found, will use stub'; fi"
 ]
 
 [start]
-cmd = "export LD_LIBRARY_PATH=/app/lib_stub:$LD_LIBRARY_PATH && export LD_PRELOAD=/app/lib_stub/libGL.so.1 && python customer_app.py"
+cmd = "python customer_app.py"
 

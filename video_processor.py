@@ -16,55 +16,53 @@ os.environ['OPENCV_DISABLE_OPENCL'] = '1'
 os.environ['OPENCV_VIDEOIO_PRIORITY_LIST'] = 'FFMPEG'
 
 # CRITICAL: Set library path BEFORE importing cv2
-# Priority: 1) Stub library, 2) System libraries
+# Priority: 1) System Mesa libraries (if available), 2) Stub library
+current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+additional_paths = []
+
+# First priority: Try to find real Mesa libGL in Nix store
+if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['find', '/nix/store', '-name', 'libGL.so.1', '-type', 'f'],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            stderr=subprocess.DEVNULL
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            lib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
+            if lib_path and lib_path not in additional_paths:
+                additional_paths.append(lib_path)
+                print(f"[video_processor] Found system libGL.so.1 at {lib_path}", flush=True)
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        pass
+    
+    # Also check common paths
+    nix_lib_paths = ['/run/opengl-driver/lib']
+    for path in nix_lib_paths:
+        if os.path.exists(path):
+            lib_gl_path = os.path.join(path, 'libGL.so.1')
+            if os.path.exists(lib_gl_path):
+                lib_dir = os.path.dirname(lib_gl_path)
+                if lib_dir not in additional_paths:
+                    additional_paths.append(lib_dir)
+
+# Fallback: Use stub library if no system library found
 stub_lib_path = '/app/lib_stub'
 stub_lib_file = os.path.join(stub_lib_path, 'libGL.so.1')
-current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-
-# First priority: Use stub library if it exists
-if os.path.exists(stub_lib_file):
-    if stub_lib_path not in current_ld_path:
-        os.environ['LD_LIBRARY_PATH'] = f"{stub_lib_path}:{current_ld_path}" if current_ld_path else stub_lib_path
-        current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+if not additional_paths and os.path.exists(stub_lib_file):
+    if stub_lib_path not in additional_paths:
+        additional_paths.append(stub_lib_path)
     print(f"[video_processor] Using stub libGL.so.1 from {stub_lib_path}", flush=True)
-else:
-    # Fallback: Try to find libGL in Nix store or system
-    if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
-        import subprocess
-        additional_paths = []
-        
-        # Search for libGL in Nix store
-        try:
-            result = subprocess.run(
-                ['find', '/nix/store', '-name', 'libGL.so.1', '-type', 'f'],
-                capture_output=True,
-                text=True,
-                timeout=3,
-                stderr=subprocess.DEVNULL
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                lib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
-                if lib_path and lib_path not in additional_paths:
-                    additional_paths.append(lib_path)
-        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-            pass
-        
-        # Also check common paths
-        nix_lib_paths = ['/run/opengl-driver/lib']
-        for path in nix_lib_paths:
-            if os.path.exists(path):
-                lib_gl_path = os.path.join(path, 'libGL.so.1')
-                if os.path.exists(lib_gl_path):
-                    lib_dir = os.path.dirname(lib_gl_path)
-                    if lib_dir not in additional_paths:
-                        additional_paths.append(lib_dir)
-        
-        if additional_paths:
-            if current_ld_path:
-                os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths) + ':' + current_ld_path
-            else:
-                os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths)
-            print(f"[video_processor] Using system libGL.so.1 from {additional_paths}", flush=True)
+
+# Update LD_LIBRARY_PATH with found paths
+if additional_paths:
+    if current_ld_path:
+        os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths) + ':' + current_ld_path
+    else:
+        os.environ['LD_LIBRARY_PATH'] = ':'.join(additional_paths)
 
 try:
     import cv2
