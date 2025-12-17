@@ -17,12 +17,41 @@ os.environ['OPENCV_VIDEOIO_PRIORITY_LIST'] = 'FFMPEG'
 
 # Workaround for Nix environments: try to set library path
 if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
+    import subprocess
     current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+    additional_paths = []
+    
+    # Try to find libGL.so.1 in common Nix locations
     nix_lib_paths = [
         '/run/opengl-driver/lib',
+        '/nix/store',
     ]
-    # Add common Nix OpenGL library paths that exist
-    additional_paths = [p for p in nix_lib_paths if os.path.exists(p)]
+    
+    # Search for libGL in Nix store
+    try:
+        result = subprocess.run(
+            ['find', '/nix/store', '-name', 'libGL.so.1', '-type', 'f'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            stderr=subprocess.DEVNULL
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            lib_path = os.path.dirname(result.stdout.strip().split('\n')[0])
+            if lib_path and lib_path not in additional_paths:
+                additional_paths.append(lib_path)
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        pass
+    
+    # Also check common paths
+    for path in nix_lib_paths:
+        if os.path.exists(path):
+            lib_gl_path = os.path.join(path, 'libGL.so.1')
+            if os.path.exists(lib_gl_path):
+                lib_dir = os.path.dirname(lib_gl_path)
+                if lib_dir not in additional_paths:
+                    additional_paths.append(lib_dir)
+    
     if additional_paths:
         if current_ld_path:
             os.environ['LD_LIBRARY_PATH'] = current_ld_path + ':' + ':'.join(additional_paths)
