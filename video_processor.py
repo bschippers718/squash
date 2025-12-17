@@ -20,10 +20,9 @@ if '/nix' in sys.executable or 'NIX_PROFILES' in os.environ:
     current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
     nix_lib_paths = [
         '/run/opengl-driver/lib',
-        '/nix/store/*/lib',
     ]
-    # Add common Nix OpenGL library paths
-    additional_paths = [p for p in nix_lib_paths if os.path.exists(p.split('*')[0]) if '*' in p else os.path.exists(p)]
+    # Add common Nix OpenGL library paths that exist
+    additional_paths = [p for p in nix_lib_paths if os.path.exists(p)]
     if additional_paths:
         if current_ld_path:
             os.environ['LD_LIBRARY_PATH'] = current_ld_path + ':' + ':'.join(additional_paths)
