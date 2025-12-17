@@ -16,5 +16,5 @@ cmds = [
 ]
 
 [start]
-cmd = "export LD_LIBRARY_PATH=/app/lib_stub:$LD_LIBRARY_PATH && python customer_app.py"
+cmd = "export LD_LIBRARY_PATH=/app/lib_stub:$LD_LIBRARY_PATH && export LD_PRELOAD=/app/lib_stub/libGL.so.1 && python customer_app.py"
 
