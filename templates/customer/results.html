@@ -611,8 +611,9 @@
             const isMultiGame = jobId.startsWith('match_') || (analytics.games && analytics.games.length > 1);
             const numGames = analytics.num_games || (analytics.games?.length) || 1;
             
-            // Get video name - ensure it doesn't include job_id prefix
-            let videoName = result?.video_name || jobData.filename || jobId;
+            // Get video name - keep original for file lookups, clean version for display
+            let videoNameWithPrefix = result?.video_name || jobData.filename || jobId;
+            let videoName = videoNameWithPrefix;
             // Remove job_id prefix if present (e.g., "088f45fb_IMG_1732_2" -> "IMG_1732_2")
             if (videoName.startsWith(jobId + '_')) {
                 videoName = videoName.substring(jobId.length + 1);
@@ -694,6 +695,7 @@
             } else {
                 // Try multiple filename patterns as fallbacks
                 const framePaths = [
+                    `/results/${jobId}/files/${videoNameWithPrefix}_players.jpg`,
                     `/results/${jobId}/files/${jobId}_${videoName}_players.jpg`,
                     `/results/${jobId}/files/${videoName}_players.jpg`,
                     `/results/${jobId}/files/${jobData.filename || jobId}_players.jpg`
