@@ -70,13 +70,26 @@ try:
     import cv2
     print(f"[video_processor] OpenCV imported successfully. LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'not set')}", flush=True)
 except ImportError as e:
-    if 'libGL.so.1' in str(e):
+    if 'libGL.so.1' in str(e) or 'libGL.so' in str(e):
         stub_exists = os.path.exists('/app/lib_stub/libGL.so.1')
+        stub_symlink_exists = os.path.exists('/app/lib_stub/libGL.so')
+        import subprocess
+        stub_info = ""
+        if stub_exists:
+            try:
+                result = subprocess.run(['nm', '-D', '/app/lib_stub/libGL.so.1'], 
+                                       capture_output=True, text=True, timeout=2)
+                symbols = [line for line in result.stdout.split('\n') if 'glX' in line or 'gl ' in line][:3]
+                stub_info = f" Symbols found: {len(symbols)}"
+            except:
+                stub_info = " (symbol check failed)"
+        
         raise ImportError(
             f"OpenCV failed to import due to missing libGL.so.1. "
-            f"Stub library exists: {stub_exists}. "
+            f"Stub library exists: {stub_exists}{stub_info}. "
+            f"Symlink exists: {stub_symlink_exists}. "
             f"LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'not set')}. "
-            f"If stub exists, check that it's in LD_LIBRARY_PATH."
+            f"Error: {str(e)}"
         ) from e
     raise
 import json
