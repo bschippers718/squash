@@ -578,6 +578,187 @@ def analyze_zone_dwell_time(frames_data, video_width, video_height):
 
 
 # =============================================================================
+# FRONT COURT ANALYSIS (Dropshots & Retrieves)
+# =============================================================================
+
+def analyze_front_court_play(frames_data, video_width, video_height, fps):
+    """
+    Analyze front court activity for each player:
+    - Time spent in front court (front 30% of court)
+    - Drop shots hit (ball moves to front court with player nearby)
+    - Drop shots retrieved (got to opponent's drop shot)
+    
+    This helps understand who's controlling the front, who's attacking with drops,
+    and who's having to scramble to retrieve them.
+    """
+    # Define front court as front 30% (y < 0.30 in normalized coords)
+    front_court_threshold = 0.30
+    
+    # Track metrics for each player
+    p1_front_time = 0  # Frames in front court
+    p2_front_time = 0
+    p1_total_frames = 0
+    p2_total_frames = 0
+    
+    # Track dropshots and retrieves
+    p1_dropshots = 0  # Drops hit by P1
+    p2_dropshots = 0  # Drops hit by P2
+    p1_retrieves = 0  # P1 retrieving P2's drops
+    p2_retrieves = 0  # P2 retrieving P1's drops
+    
+    # Track ball and player positions for drop detection
+    prev_ball_center = None
+    prev_ball_in_front = False
+    ball_just_went_front = False
+    drop_cooldown = 0  # Frames to wait between detected drops
+    
+    # Track who last hit the ball (for attributing drops)
+    last_hitter = None
+    
+    for frame_data in frames_data:
+        players = frame_data.get('players', [])
+        ball_center = frame_data.get('ball_center')
+        ball_bbox = frame_data.get('ball')
+        
+        if drop_cooldown > 0:
+            drop_cooldown -= 1
+        
+        if len(players) < 2:
+            continue
+        
+        # Get player positions using consistent IDs
+        p1_player = next((p for p in players if p['id'] == 0), None)
+        p2_player = next((p for p in players if p['id'] == 1), None)
+        
+        if not p1_player or not p2_player:
+            continue
+        
+        p1_center = p1_player['center']
+        p2_center = p2_player['center']
+        
+        # Normalize positions
+        p1_norm_y = p1_center[1] / video_height
+        p2_norm_y = p2_center[1] / video_height
+        
+        # Track front court time
+        p1_total_frames += 1
+        p2_total_frames += 1
+        
+        if p1_norm_y < front_court_threshold:
+            p1_front_time += 1
+        if p2_norm_y < front_court_threshold:
+            p2_front_time += 1
+        
+        # Analyze ball movement for dropshots
+        if ball_center:
+            ball_norm_y = ball_center[1] / video_height
+            ball_in_front = ball_norm_y < front_court_threshold
+            
+            # Detect who's closer to the ball (likely hitting it)
+            p1_dist_to_ball = calculate_distance(p1_center, ball_center)
+            p2_dist_to_ball = calculate_distance(p2_center, ball_center)
+            
+            # Update last hitter if someone is close enough
+            hit_threshold = video_width * 0.15  # 15% of court width
+            if p1_dist_to_ball < hit_threshold and p1_dist_to_ball < p2_dist_to_ball:
+                last_hitter = 1
+            elif p2_dist_to_ball < hit_threshold and p2_dist_to_ball < p1_dist_to_ball:
+                last_hitter = 2
+            
+            # Detect drop shot: ball moves into front court
+            if prev_ball_center and drop_cooldown == 0:
+                prev_ball_norm_y = prev_ball_center[1] / video_height
+                
+                # Ball just entered front court from behind
+                if ball_in_front and not prev_ball_in_front:
+                    ball_just_went_front = True
+                    
+                    # Attribute the drop to the last hitter
+                    if last_hitter == 1:
+                        p1_dropshots += 1
+                    elif last_hitter == 2:
+                        p2_dropshots += 1
+                    
+                    drop_cooldown = int(fps * 0.5)  # 0.5 second cooldown
+            
+            # Detect retrieve: opponent gets to a ball in the front court
+            if ball_in_front and ball_just_went_front:
+                # Check if the non-hitter has moved to the front to retrieve
+                if last_hitter == 1 and p2_norm_y < front_court_threshold and p2_dist_to_ball < hit_threshold:
+                    p2_retrieves += 1
+                    ball_just_went_front = False  # Reset
+                elif last_hitter == 2 and p1_norm_y < front_court_threshold and p1_dist_to_ball < hit_threshold:
+                    p1_retrieves += 1
+                    ball_just_went_front = False
+            
+            prev_ball_center = ball_center
+            prev_ball_in_front = ball_in_front
+    
+    # Calculate percentages
+    p1_front_pct = round((p1_front_time / p1_total_frames) * 100, 1) if p1_total_frames > 0 else 0
+    p2_front_pct = round((p2_front_time / p2_total_frames) * 100, 1) if p2_total_frames > 0 else 0
+    
+    # Generate analysis
+    analysis_parts = []
+    
+    # Front court time analysis
+    if p1_front_pct > p2_front_pct + 5:
+        analysis_parts.append(f"Player 1 spent more time in the front court ({p1_front_pct}% vs {p2_front_pct}%), indicating they're controlling the front or being pulled forward by drops.")
+    elif p2_front_pct > p1_front_pct + 5:
+        analysis_parts.append(f"Player 2 spent more time in the front court ({p2_front_pct}% vs {p1_front_pct}%), indicating they're controlling the front or being pulled forward by drops.")
+    
+    # Dropshot analysis
+    total_drops = p1_dropshots + p2_dropshots
+    if total_drops > 0:
+        if p1_dropshots > p2_dropshots + 2:
+            analysis_parts.append(f"Player 1 is using more drop shots ({p1_dropshots} vs {p2_dropshots}), putting pressure on their opponent.")
+        elif p2_dropshots > p1_dropshots + 2:
+            analysis_parts.append(f"Player 2 is using more drop shots ({p2_dropshots} vs {p1_dropshots}), putting pressure on their opponent.")
+    
+    # Retrieve analysis
+    total_retrieves = p1_retrieves + p2_retrieves
+    if total_retrieves > 0:
+        if p1_retrieves > p2_retrieves + 2:
+            analysis_parts.append(f"Player 1 is having to retrieve more drops ({p1_retrieves} vs {p2_retrieves}), showing they're being pushed around the court.")
+        elif p2_retrieves > p1_retrieves + 2:
+            analysis_parts.append(f"Player 2 is having to retrieve more drops ({p2_retrieves} vs {p1_retrieves}), showing they're being pushed around the court.")
+    
+    if not analysis_parts:
+        analysis_parts.append("Both players have similar front court activity. Neither has a clear advantage in drop shots or court positioning.")
+    
+    # Determine winner (who's more dominant in front court play)
+    # Higher drops + lower retrieves = better
+    p1_front_score = p1_dropshots - p1_retrieves + (p1_front_pct / 10)
+    p2_front_score = p2_dropshots - p2_retrieves + (p2_front_pct / 10)
+    
+    if p1_front_score > p2_front_score + 1:
+        winner = 'Player 1'
+    elif p2_front_score > p1_front_score + 1:
+        winner = 'Player 2'
+    else:
+        winner = 'Even'
+    
+    return {
+        'player1': {
+            'front_court_pct': p1_front_pct,
+            'dropshots': p1_dropshots,
+            'retrieves': p1_retrieves,
+            'front_score': round(p1_front_score, 1)
+        },
+        'player2': {
+            'front_court_pct': p2_front_pct,
+            'dropshots': p2_dropshots,
+            'retrieves': p2_retrieves,
+            'front_score': round(p2_front_score, 1)
+        },
+        'analysis': {
+            'winner': winner,
+            'summary': ' '.join(analysis_parts)
+        }
+    }
+
+
+# =============================================================================
 # PERFORMANCE DECAY ANALYSIS
 # =============================================================================
 
@@ -1065,6 +1246,9 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
     # Analyze zone dwell time (heatmap data)
     zone_analysis = analyze_zone_dwell_time(frames_data, video_width, video_height)
     
+    # Analyze front court play (dropshots and retrieves)
+    front_court = analyze_front_court_play(frames_data, video_width, video_height, fps)
+    
     # Analyze performance decay (first half vs second half)
     performance_decay = analyze_performance_decay(frames_data, video_width, video_height, fps)
     
@@ -1095,7 +1279,10 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'avg_rail_distance': tight_rails['player1']['avg_wall_distance'],
             'avg_rail_distance_pct': tight_rails['player1'].get('avg_wall_distance_pct', -1),
             'avg_rail_distance_ft': tight_rails['player1'].get('avg_wall_distance_ft', -1),
-            'tight_rail_count': tight_rails['player1']['tight_rail_count']
+            'tight_rail_count': tight_rails['player1']['tight_rail_count'],
+            'front_court_pct': front_court['player1']['front_court_pct'],
+            'dropshots': front_court['player1']['dropshots'],
+            'retrieves': front_court['player1']['retrieves']
         },
         'player2': {
             'name': 'Player 2 (Right)',
@@ -1106,7 +1293,10 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'avg_rail_distance': tight_rails['player2']['avg_wall_distance'],
             'avg_rail_distance_pct': tight_rails['player2'].get('avg_wall_distance_pct', -1),
             'avg_rail_distance_ft': tight_rails['player2'].get('avg_wall_distance_ft', -1),
-            'tight_rail_count': tight_rails['player2']['tight_rail_count']
+            'tight_rail_count': tight_rails['player2']['tight_rail_count'],
+            'front_court_pct': front_court['player2']['front_court_pct'],
+            'dropshots': front_court['player2']['dropshots'],
+            'retrieves': front_court['player2']['retrieves']
         },
         'analysis': {
             'scramble': {
@@ -1127,7 +1317,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
                 'summary': attack_analysis,
                 'more_aggressive': 'Player 1' if p1_attacks > p2_attacks else 'Player 2'
             },
-            'tight_rails': tight_rails['analysis']
+            'tight_rails': tight_rails['analysis'],
+            'front_court': front_court['analysis']
         },
         'insights': generate_match_insights(
             p1_avg_dist, p2_avg_dist,
@@ -1137,6 +1328,7 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
         ),
         'shot_sequences': shot_sequences,
         'zone_analysis': zone_analysis,
+        'front_court': front_court,
         'performance_decay': performance_decay
     }
 
@@ -1647,6 +1839,14 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     p1_zone_totals = {'front_court': 0, 'mid_court': 0, 'back_court': 0}
     p2_zone_totals = {'front_court': 0, 'mid_court': 0, 'back_court': 0}
     
+    # Front court play aggregates
+    p1_total_front_pct = 0
+    p2_total_front_pct = 0
+    p1_total_dropshots = 0
+    p2_total_dropshots = 0
+    p1_total_retrieves = 0
+    p2_total_retrieves = 0
+    
     # Performance decay - compare first half of games to second half
     first_half_games = []
     second_half_games = []
@@ -1710,6 +1910,14 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         p1_total_tight_rails += p1.get('tight_rail_count', 0)
         p2_total_tight_rails += p2.get('tight_rail_count', 0)
         
+        # Front court play
+        p1_total_front_pct += p1.get('front_court_pct', 0) * game_duration
+        p2_total_front_pct += p2.get('front_court_pct', 0) * game_duration
+        p1_total_dropshots += p1.get('dropshots', 0)
+        p2_total_dropshots += p2.get('dropshots', 0)
+        p1_total_retrieves += p1.get('retrieves', 0)
+        p2_total_retrieves += p2.get('retrieves', 0)
+        
         # Zone analysis
         p1_zone = zone.get('player1', {}).get('aggregate', {})
         p2_zone = zone.get('player2', {}).get('aggregate', {})
@@ -1768,6 +1976,8 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         p2_avg_scramble = p2_total_scramble / total_duration
         p1_avg_t_dom = p1_total_t_dominance / total_duration
         p2_avg_t_dom = p2_total_t_dominance / total_duration
+        p1_avg_front_pct = p1_total_front_pct / total_duration
+        p2_avg_front_pct = p2_total_front_pct / total_duration
         
         for key in p1_zone_totals:
             p1_zone_totals[key] = round(p1_zone_totals[key] / total_duration, 1)
@@ -1775,6 +1985,7 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     else:
         p1_avg_scramble = p2_avg_scramble = 0
         p1_avg_t_dom = p2_avg_t_dom = 50
+        p1_avg_front_pct = p2_avg_front_pct = 0
     
     # Calculate rail averages
     p1_avg_rail = round(p1_total_rail_dist / p1_rail_games, 1) if p1_rail_games > 0 else -1
@@ -1974,7 +2185,10 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'total_attack_score': p1_total_attacks,
             'avg_rail_distance': p1_avg_rail,
             'total_tight_rails': p1_total_tight_rails,
-            't_dominance_trend': round(p1_t_dom_change, 1)
+            't_dominance_trend': round(p1_t_dom_change, 1),
+            'front_court_pct': round(p1_avg_front_pct, 1),
+            'dropshots': p1_total_dropshots,
+            'retrieves': p1_total_retrieves
         },
         'player2': {
             'name': 'Player 2 (Right)',
@@ -1985,7 +2199,10 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'total_attack_score': p2_total_attacks,
             'avg_rail_distance': p2_avg_rail,
             'total_tight_rails': p2_total_tight_rails,
-            't_dominance_trend': round(p2_t_dom_change, 1)
+            't_dominance_trend': round(p2_t_dom_change, 1),
+            'front_court_pct': round(p2_avg_front_pct, 1),
+            'dropshots': p2_total_dropshots,
+            'retrieves': p2_total_retrieves
         },
         'games': games,
         'trends': {
@@ -2019,7 +2236,15 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'attack': {
                 'more_aggressive': 'Player 1' if p1_total_attacks > p2_total_attacks else 'Player 2'
             },
-            'tight_rails': rail_analysis
+            'tight_rails': rail_analysis,
+            'front_court': {
+                'winner': 'Player 1' if (p1_total_dropshots - p1_total_retrieves) > (p2_total_dropshots - p2_total_retrieves) else 
+                          'Player 2' if (p2_total_dropshots - p2_total_retrieves) > (p1_total_dropshots - p1_total_retrieves) else 'Even',
+                'summary': f"Player 1 hit {p1_total_dropshots} drops and retrieved {p1_total_retrieves}. Player 2 hit {p2_total_dropshots} drops and retrieved {p2_total_retrieves}. " + 
+                          (f"Player 1 controlled the front court better." if (p1_total_dropshots - p1_total_retrieves) > (p2_total_dropshots - p2_total_retrieves) + 2 else
+                           f"Player 2 controlled the front court better." if (p2_total_dropshots - p2_total_retrieves) > (p1_total_dropshots - p1_total_retrieves) + 2 else
+                           "Both players had similar front court activity.")
+            }
         }
     }
 
