@@ -583,7 +583,7 @@ def check_gpu():
     return False, "CPU"
 
 def process_video(video_path, output_dir, progress_callback=None, sport='squash',
-                  frame_skip=2, max_process_width=640, generate_annotated_video=True):
+                  frame_skip=1, max_process_width=None, generate_annotated_video=True):
     """
     Process a video file with YOLO object detection.
     
@@ -592,8 +592,8 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
         output_dir: Directory to save results
         progress_callback: Optional callback function(progress_percent, message)
         sport: Sport type for sport-specific processing ('squash', 'padel', 'tennis', 'table_tennis')
-        frame_skip: Process every Nth frame (1=all frames, 2=every other, 3=every 3rd, etc.)
-        max_process_width: Maximum width for processing (smaller = faster). Set to None to use original.
+        frame_skip: Process every Nth frame (1=all frames, 2=every other, 3=every 3rd, etc.). Default 1 for best ball detection.
+        max_process_width: Maximum width for processing (smaller = faster). Default None for full resolution (better ball detection).
         generate_annotated_video: Whether to generate annotated output video (slower if True)
     
     Returns:

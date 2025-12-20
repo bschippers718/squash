@@ -427,22 +427,29 @@ def analyze_tight_rails(frames_data, video_width, video_height):
     if p1_avg_rail is None and p2_avg_rail is None:
         return {
             'player1': {
+                'tight_rail_count': 0,
+                'total_rail_shots': 0,
+                'tight_rail_pct': 0,
                 'avg_wall_distance': -1,
                 'avg_wall_distance_pct': -1,
                 'avg_wall_distance_ft': -1,
-                'avg_wall_distance_inches': -1,
-                'tight_rail_count': 0,
-                'total_rail_shots': 0,
-                'total_shots_analyzed': 0
+                'avg_wall_distance_inches': -1
             },
             'player2': {
+                'tight_rail_count': 0,
+                'total_rail_shots': 0,
+                'tight_rail_pct': 0,
                 'avg_wall_distance': -1,
                 'avg_wall_distance_pct': -1,
                 'avg_wall_distance_ft': -1,
-                'avg_wall_distance_inches': -1,
-                'tight_rail_count': 0,
-                'total_rail_shots': 0,
-                'total_shots_analyzed': 0
+                'avg_wall_distance_inches': -1
+            },
+            'comparison': {
+                'tighter_rails_pct': 0,
+                'tight_rail_advantage': 'N/A',
+                'winner': 'N/A',
+                'total_tight_rails': 0,
+                'total_rail_shots': 0
             },
             'analysis': {
                 'winner': 'N/A',
@@ -452,71 +459,112 @@ def analyze_tight_rails(frames_data, video_width, video_height):
     
     # Set defaults for missing data
     if p1_avg_rail is None:
-        p1_avg_rail = -1
+        p1_avg_rail = 0
+        p1_tight_count = 0
+        p1_total_rails = 0
     if p2_avg_rail is None:
-        p2_avg_rail = -1
+        p2_avg_rail = 0
+        p2_tight_count = 0
+        p2_total_rails = 0
     
-    # Calculate percentage of court width and convert to real-world units
-    # A squash court is ~21 feet (252 inches) wide
-    SQUASH_COURT_WIDTH_FT = 21.0
-    SQUASH_COURT_WIDTH_INCHES = 252.0
+    # Calculate COMPARATIVE metrics instead of absolute measurements
+    # Compare how much tighter one player's rails are vs the other (as a percentage)
+    total_tight_rails = p1_tight_count + p2_tight_count
+    total_rail_shots = p1_total_rails + p2_total_rails
     
-    p1_pct = (p1_avg_rail / video_width * 100) if p1_avg_rail > 0 else -1
-    p2_pct = (p2_avg_rail / video_width * 100) if p2_avg_rail > 0 else -1
-    p1_feet = (p1_pct / 100 * SQUASH_COURT_WIDTH_FT) if p1_pct > 0 else -1
-    p2_feet = (p2_pct / 100 * SQUASH_COURT_WIDTH_FT) if p2_pct > 0 else -1
-    p1_inches = (p1_pct / 100 * SQUASH_COURT_WIDTH_INCHES) if p1_pct > 0 else -1
-    p2_inches = (p2_pct / 100 * SQUASH_COURT_WIDTH_INCHES) if p2_pct > 0 else -1
+    # Calculate tight rail percentage advantage
+    # If P1 has 60% of tight rails and P2 has 40%, P1 has a 20% advantage
+    if total_tight_rails > 0:
+        p1_tight_pct = (p1_tight_count / total_tight_rails) * 100
+        p2_tight_pct = (p2_tight_count / total_tight_rails) * 100
+        tight_rail_advantage_pct = abs(p1_tight_pct - p2_tight_pct)
+    else:
+        p1_tight_pct = 0
+        p2_tight_pct = 0
+        tight_rail_advantage_pct = 0
     
-    # Generate analysis
-    if p1_avg_rail < 0 and p2_avg_rail < 0:
-        rail_winner = 'N/A'
-        rail_analysis = "Unable to analyze rail tightness - insufficient ball tracking data."
-    elif p1_avg_rail < 0:
-        rail_winner = 'Player 2'
-        rail_analysis = f"Player 2 hit {p2_total_rails} rail shots with average tightness of {p2_inches:.0f}\" ({p2_tight_count} tight). Player 1's rails could not be measured."
-    elif p2_avg_rail < 0:
+    # Determine winner based on tight rail count (more tight rails = better)
+    if p1_tight_count > p2_tight_count:
         rail_winner = 'Player 1'
-        rail_analysis = f"Player 1 hit {p1_total_rails} rail shots with average tightness of {p1_inches:.0f}\" ({p1_tight_count} tight). Player 2's rails could not be measured."
+        tight_rail_advantage = 'Player 1'
+    elif p2_tight_count > p1_tight_count:
+        rail_winner = 'Player 2'
+        tight_rail_advantage = 'Player 2'
     elif p1_avg_rail > 0 and p2_avg_rail > 0:
-        # Lower is better (closer to wall)
-        if p1_inches < p2_inches:
+        # Tie on tight count - use average tightness (lower is better)
+        if p1_avg_rail < p2_avg_rail:
             rail_winner = 'Player 1'
-            rail_analysis = f"Player 1 hit tighter rails (avg {p1_inches:.0f}\" from wall, {p1_tight_count}/{p1_total_rails} tight) vs Player 2 ({p2_inches:.0f}\", {p2_tight_count}/{p2_total_rails} tight)."
-        elif p2_inches < p1_inches:
+            tight_rail_advantage = 'Player 1'
+        elif p2_avg_rail < p1_avg_rail:
             rail_winner = 'Player 2'
-            rail_analysis = f"Player 2 hit tighter rails (avg {p2_inches:.0f}\" from wall, {p2_tight_count}/{p2_total_rails} tight) vs Player 1 ({p1_inches:.0f}\", {p1_tight_count}/{p1_total_rails} tight)."
+            tight_rail_advantage = 'Player 2'
         else:
             rail_winner = 'Even'
-            rail_analysis = f"Both players hit rails with similar tightness (~{p1_inches:.0f}\" from wall)."
+            tight_rail_advantage = 'Even'
     else:
-        rail_winner = 'N/A'
-        rail_analysis = "Rail analysis unavailable."
+        rail_winner = 'Even'
+        tight_rail_advantage = 'Even'
+    
+    # Generate comparative analysis text
+    if total_rail_shots == 0:
+        rail_analysis = "Unable to analyze rail tightness - insufficient ball tracking data."
+    elif p1_tight_count == 0 and p2_tight_count == 0:
+        rail_analysis = f"Both players hit {total_rail_shots} rail shots but neither hit particularly tight rails."
+    elif tight_rail_advantage == 'Even':
+        rail_analysis = f"Both players hit similar tight rails ({p1_tight_count} vs {p2_tight_count} tight shots)."
+    else:
+        winner_tight = p1_tight_count if tight_rail_advantage == 'Player 1' else p2_tight_count
+        loser_tight = p2_tight_count if tight_rail_advantage == 'Player 1' else p1_tight_count
+        rail_analysis = f"{tight_rail_advantage} hit tighter rails with {tight_rail_advantage_pct:.0f}% more tight shots ({winner_tight} vs {loser_tight})."
+    
+    # Calculate average distances in different units for display
+    # Assuming squash court width of 21 feet (252 inches / 6.4 meters)
+    COURT_WIDTH_PIXELS = video_width
+    COURT_WIDTH_FEET = 21.0
+    COURT_WIDTH_INCHES = 252.0
+    
+    def calc_distance_units(avg_rail_px):
+        """Convert pixel distance to percentage, feet, and inches."""
+        if avg_rail_px is None or avg_rail_px <= 0:
+            return -1, -1, -1, -1
+        pct = round((avg_rail_px / COURT_WIDTH_PIXELS) * 100, 1)
+        ft = round((avg_rail_px / COURT_WIDTH_PIXELS) * COURT_WIDTH_FEET, 1)
+        inches = round((avg_rail_px / COURT_WIDTH_PIXELS) * COURT_WIDTH_INCHES, 1)
+        return round(avg_rail_px, 1), pct, ft, inches
+    
+    p1_wall_dist, p1_wall_pct, p1_wall_ft, p1_wall_inches = calc_distance_units(p1_avg_rail)
+    p2_wall_dist, p2_wall_pct, p2_wall_ft, p2_wall_inches = calc_distance_units(p2_avg_rail)
     
     return {
         'player1': {
-            'avg_wall_distance': round(p1_avg_rail, 1) if p1_avg_rail > 0 else -1,
-            'avg_wall_distance_pct': round(p1_pct, 1) if p1_pct > 0 else -1,
-            'avg_wall_distance_ft': round(p1_feet, 1) if p1_feet > 0 else -1,
-            'avg_wall_distance_inches': round(p1_inches, 1) if p1_inches > 0 else -1,
             'tight_rail_count': p1_tight_count,
             'total_rail_shots': p1_total_rails,
-            'total_shots_analyzed': p1_total_rails
+            'tight_rail_pct': round(p1_tight_pct, 1),
+            'avg_wall_distance': p1_wall_dist,
+            'avg_wall_distance_pct': p1_wall_pct,
+            'avg_wall_distance_ft': p1_wall_ft,
+            'avg_wall_distance_inches': p1_wall_inches
         },
         'player2': {
-            'avg_wall_distance': round(p2_avg_rail, 1) if p2_avg_rail > 0 else -1,
-            'avg_wall_distance_pct': round(p2_pct, 1) if p2_pct > 0 else -1,
-            'avg_wall_distance_ft': round(p2_feet, 1) if p2_feet > 0 else -1,
-            'avg_wall_distance_inches': round(p2_inches, 1) if p2_inches > 0 else -1,
             'tight_rail_count': p2_tight_count,
             'total_rail_shots': p2_total_rails,
-            'total_shots_analyzed': p2_total_rails
+            'tight_rail_pct': round(p2_tight_pct, 1),
+            'avg_wall_distance': p2_wall_dist,
+            'avg_wall_distance_pct': p2_wall_pct,
+            'avg_wall_distance_ft': p2_wall_ft,
+            'avg_wall_distance_inches': p2_wall_inches
+        },
+        'comparison': {
+            'tighter_rails_pct': round(tight_rail_advantage_pct, 1),
+            'tight_rail_advantage': tight_rail_advantage,
+            'winner': rail_winner,
+            'total_tight_rails': total_tight_rails,
+            'total_rail_shots': total_rail_shots
         },
         'analysis': {
             'winner': rail_winner,
             'summary': rail_analysis
-        },
-        'video_width': video_width
+        }
     }
 
 # =============================================================================
@@ -669,45 +717,26 @@ def analyze_zone_dwell_time(frames_data, video_width, video_height):
 
 def analyze_front_court_play(frames_data, video_width, video_height, fps):
     """
-    Analyze front court activity for each player:
-    - Time spent in front court (front 30% of court)
-    - Drop shots hit (ball moves to front court with player nearby)
-    - Drop shots retrieved (got to opponent's drop shot)
+    Analyze front court activity for each player based on PLAYER POSITION only.
     
-    This helps understand who's controlling the front, who's attacking with drops,
-    and who's having to scramble to retrieve them.
+    This uses reliable player detection (not ball detection) to determine:
+    - Time spent in front court (front 30% of court)
+    - Comparative advantage in front court control
+    
+    Note: Dropshot counting has been removed as it relies on unreliable ball detection.
+    Instead, we focus on comparative player positioning which is much more reliable.
     """
     # Define front court as front 30% (y < 0.30 in normalized coords)
     front_court_threshold = 0.30
     
-    # Track metrics for each player
+    # Track metrics for each player (PLAYER POSITION BASED - reliable)
     p1_front_time = 0  # Frames in front court
     p2_front_time = 0
     p1_total_frames = 0
     p2_total_frames = 0
     
-    # Track dropshots and retrieves
-    p1_dropshots = 0  # Drops hit by P1
-    p2_dropshots = 0  # Drops hit by P2
-    p1_retrieves = 0  # P1 retrieving P2's drops
-    p2_retrieves = 0  # P2 retrieving P1's drops
-    
-    # Track ball and player positions for drop detection
-    prev_ball_center = None
-    prev_ball_in_front = False
-    ball_just_went_front = False
-    drop_cooldown = 0  # Frames to wait between detected drops
-    
-    # Track who last hit the ball (for attributing drops)
-    last_hitter = None
-    
     for frame_data in frames_data:
         players = frame_data.get('players', [])
-        ball_center = frame_data.get('ball_center')
-        ball_bbox = frame_data.get('ball')
-        
-        if drop_cooldown > 0:
-            drop_cooldown -= 1
         
         if len(players) < 2:
             continue
@@ -734,112 +763,54 @@ def analyze_front_court_play(frames_data, video_width, video_height, fps):
             p1_front_time += 1
         if p2_norm_y < front_court_threshold:
             p2_front_time += 1
-        
-        # Analyze ball movement for dropshots
-        if ball_center:
-            ball_norm_y = ball_center[1] / video_height
-            ball_in_front = ball_norm_y < front_court_threshold
-            
-            # Detect who's closer to the ball (likely hitting it)
-            p1_dist_to_ball = calculate_distance(p1_center, ball_center)
-            p2_dist_to_ball = calculate_distance(p2_center, ball_center)
-            
-            # Update last hitter if someone is close enough
-            hit_threshold = video_width * 0.15  # 15% of court width
-            if p1_dist_to_ball < hit_threshold and p1_dist_to_ball < p2_dist_to_ball:
-                last_hitter = 1
-            elif p2_dist_to_ball < hit_threshold and p2_dist_to_ball < p1_dist_to_ball:
-                last_hitter = 2
-            
-            # Detect drop shot: ball moves into front court
-            if prev_ball_center and drop_cooldown == 0:
-                prev_ball_norm_y = prev_ball_center[1] / video_height
-                
-                # Ball just entered front court from behind
-                if ball_in_front and not prev_ball_in_front:
-                    ball_just_went_front = True
-                    
-                    # Attribute the drop to the last hitter
-                    if last_hitter == 1:
-                        p1_dropshots += 1
-                    elif last_hitter == 2:
-                        p2_dropshots += 1
-                    
-                    drop_cooldown = int(fps * 0.5)  # 0.5 second cooldown
-            
-            # Detect retrieve: opponent gets to a ball in the front court
-            if ball_in_front and ball_just_went_front:
-                # Check if the non-hitter has moved to the front to retrieve
-                if last_hitter == 1 and p2_norm_y < front_court_threshold and p2_dist_to_ball < hit_threshold:
-                    p2_retrieves += 1
-                    ball_just_went_front = False  # Reset
-                elif last_hitter == 2 and p1_norm_y < front_court_threshold and p1_dist_to_ball < hit_threshold:
-                    p1_retrieves += 1
-                    ball_just_went_front = False
-            
-            prev_ball_center = ball_center
-            prev_ball_in_front = ball_in_front
     
     # Calculate percentages
     p1_front_pct = round((p1_front_time / p1_total_frames) * 100, 1) if p1_total_frames > 0 else 0
     p2_front_pct = round((p2_front_time / p2_total_frames) * 100, 1) if p2_total_frames > 0 else 0
     
-    # Generate analysis
-    analysis_parts = []
+    # Calculate COMPARATIVE advantage (how much more one player controlled front court)
+    front_court_advantage_pct = abs(p1_front_pct - p2_front_pct)
     
-    # Front court time analysis
-    if p1_front_pct > p2_front_pct + 5:
-        analysis_parts.append(f"Player 1 spent more time in the front court ({p1_front_pct}% vs {p2_front_pct}%), indicating they're controlling the front or being pulled forward by drops.")
-    elif p2_front_pct > p1_front_pct + 5:
-        analysis_parts.append(f"Player 2 spent more time in the front court ({p2_front_pct}% vs {p1_front_pct}%), indicating they're controlling the front or being pulled forward by drops.")
-    
-    # Dropshot analysis
-    total_drops = p1_dropshots + p2_dropshots
-    if total_drops > 0:
-        if p1_dropshots > p2_dropshots + 2:
-            analysis_parts.append(f"Player 1 is using more drop shots ({p1_dropshots} vs {p2_dropshots}), putting pressure on their opponent.")
-        elif p2_dropshots > p1_dropshots + 2:
-            analysis_parts.append(f"Player 2 is using more drop shots ({p2_dropshots} vs {p1_dropshots}), putting pressure on their opponent.")
-    
-    # Retrieve analysis
-    total_retrieves = p1_retrieves + p2_retrieves
-    if total_retrieves > 0:
-        if p1_retrieves > p2_retrieves + 2:
-            analysis_parts.append(f"Player 1 is having to retrieve more drops ({p1_retrieves} vs {p2_retrieves}), showing they're being pushed around the court.")
-        elif p2_retrieves > p1_retrieves + 2:
-            analysis_parts.append(f"Player 2 is having to retrieve more drops ({p2_retrieves} vs {p1_retrieves}), showing they're being pushed around the court.")
-    
-    if not analysis_parts:
-        analysis_parts.append("Both players have similar front court activity. Neither has a clear advantage in drop shots or court positioning.")
-    
-    # Determine winner (who's more dominant in front court play)
-    # Higher drops + lower retrieves = better
-    p1_front_score = p1_dropshots - p1_retrieves + (p1_front_pct / 10)
-    p2_front_score = p2_dropshots - p2_retrieves + (p2_front_pct / 10)
-    
-    if p1_front_score > p2_front_score + 1:
+    # Determine winner based on front court presence
+    if p1_front_pct > p2_front_pct + 3:  # 3% threshold for meaningful difference
         winner = 'Player 1'
-    elif p2_front_score > p1_front_score + 1:
+        front_court_winner = 'Player 1'
+    elif p2_front_pct > p1_front_pct + 3:
         winner = 'Player 2'
+        front_court_winner = 'Player 2'
     else:
         winner = 'Even'
+        front_court_winner = 'Even'
+    
+    # Generate COMPARATIVE analysis text (no ball-dependent metrics)
+    if p1_total_frames == 0 and p2_total_frames == 0:
+        analysis = "Unable to analyze front court play - insufficient player tracking data."
+    elif front_court_winner == 'Even':
+        analysis = f"Both players had similar front court presence ({p1_front_pct}% vs {p2_front_pct}%). Neither dominated the front of the court."
+    else:
+        winner_pct = p1_front_pct if front_court_winner == 'Player 1' else p2_front_pct
+        loser_pct = p2_front_pct if front_court_winner == 'Player 1' else p1_front_pct
+        analysis = f"{front_court_winner} controlled the front court {front_court_advantage_pct:.0f}% more ({winner_pct}% vs {loser_pct}%), putting pressure on their opponent."
     
     return {
         'player1': {
             'front_court_pct': p1_front_pct,
-            'dropshots': p1_dropshots,
-            'retrieves': p1_retrieves,
-            'front_score': round(p1_front_score, 1)
+            'dropshots': 0,  # Dropshot counting removed - relies on unreliable ball detection
+            'retrieves': 0   # Retrieve counting removed - relies on unreliable ball detection
         },
         'player2': {
             'front_court_pct': p2_front_pct,
-            'dropshots': p2_dropshots,
-            'retrieves': p2_retrieves,
-            'front_score': round(p2_front_score, 1)
+            'dropshots': 0,  # Dropshot counting removed - relies on unreliable ball detection
+            'retrieves': 0   # Retrieve counting removed - relies on unreliable ball detection
+        },
+        'comparison': {
+            'front_court_advantage_pct': round(front_court_advantage_pct, 1),
+            'front_court_winner': front_court_winner,
+            'winner': winner
         },
         'analysis': {
             'winner': winner,
-            'summary': ' '.join(analysis_parts)
+            'summary': analysis
         }
     }
 
@@ -1321,8 +1292,31 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
         tight_rails = analyze_tight_rails(frames_data, video_width, video_height)
     else:
         tight_rails = {
-            'player1': {'avg_wall_distance': -1, 'tight_rail_count': 0, 'total_shots_analyzed': 0},
-            'player2': {'avg_wall_distance': -1, 'tight_rail_count': 0, 'total_shots_analyzed': 0},
+            'player1': {
+                'avg_wall_distance': -1,
+                'avg_wall_distance_pct': -1,
+                'avg_wall_distance_ft': -1,
+                'avg_wall_distance_inches': -1,
+                'tight_rail_count': 0,
+                'tight_rail_pct': 0,
+                'total_rail_shots': 0
+            },
+            'player2': {
+                'avg_wall_distance': -1,
+                'avg_wall_distance_pct': -1,
+                'avg_wall_distance_ft': -1,
+                'avg_wall_distance_inches': -1,
+                'tight_rail_count': 0,
+                'tight_rail_pct': 0,
+                'total_rail_shots': 0
+            },
+            'comparison': {
+                'tighter_rails_pct': 0,
+                'tight_rail_advantage': 'N/A',
+                'winner': 'N/A',
+                'total_tight_rails': 0,
+                'total_rail_shots': 0
+            },
             'analysis': {'winner': 'N/A', 'summary': 'Wall shots not applicable for this sport.'}
         }
     
@@ -2377,12 +2371,13 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             },
             'tight_rails': rail_analysis,
             'front_court': {
-                'winner': 'Player 1' if (p1_total_dropshots - p1_total_retrieves) > (p2_total_dropshots - p2_total_retrieves) else 
-                          'Player 2' if (p2_total_dropshots - p2_total_retrieves) > (p1_total_dropshots - p1_total_retrieves) else 'Even',
-                'summary': f"Player 1 hit {p1_total_dropshots} drops and retrieved {p1_total_retrieves}. Player 2 hit {p2_total_dropshots} drops and retrieved {p2_total_retrieves}. " + 
-                          (f"Player 1 controlled the front court better." if (p1_total_dropshots - p1_total_retrieves) > (p2_total_dropshots - p2_total_retrieves) + 2 else
-                           f"Player 2 controlled the front court better." if (p2_total_dropshots - p2_total_retrieves) > (p1_total_dropshots - p1_total_retrieves) + 2 else
-                           "Both players had similar front court activity.")
+                # Use front_court_pct (reliable player positioning) instead of dropshots (unreliable ball detection)
+                'winner': 'Player 1' if p1_avg_front_pct > p2_avg_front_pct + 3 else 
+                          'Player 2' if p2_avg_front_pct > p1_avg_front_pct + 3 else 'Even',
+                'summary': (f"Player 1 spent {p1_avg_front_pct:.0f}% of time in the front court. Player 2 spent {p2_avg_front_pct:.0f}%. " + 
+                          (f"Player 1 controlled the front court more." if p1_avg_front_pct > p2_avg_front_pct + 5 else
+                           f"Player 2 controlled the front court more." if p2_avg_front_pct > p1_avg_front_pct + 5 else
+                           "Both players had similar front court presence."))
             }
         }
     }

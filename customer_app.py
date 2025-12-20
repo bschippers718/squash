@@ -92,11 +92,11 @@ def process_video_task(job_id, video_path, sport='squash'):
             update_job(job_id, progress=progress, message=message)
         
         # Pass sport parameter to video processor
-        # Use frame_skip=1 to process every frame for accurate player tracking
-        # Use max_process_width=1280 for better ball detection (640 was too small)
+        # Use frame_skip=1 to process every frame for accurate ball tracking
+        # Use max_process_width=None for full resolution (better ball detection)
         print(f"[{job_id}] Calling process_video...", flush=True)
         result = process_video(video_path, str(output_dir), progress_callback, sport=sport,
-                               frame_skip=1, max_process_width=1280)
+                               frame_skip=1, max_process_width=None)
         
         if result and result.get('success'):
             # Store sport info in result

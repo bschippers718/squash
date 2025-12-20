@@ -370,7 +370,7 @@
                 rail: 'Tight Rails',
                 rail_desc: 'How close shots are to the side wall — tighter rails are harder to retrieve.',
                 front_court: 'Front Court Play',
-                front_court_desc: 'Who\'s controlling the front of the court. Shows time in front, drop shots hit, and drops retrieved. More drops + fewer retrieves = better front court control.'
+                front_court_desc: 'Who\'s spending more time in the attacking front court zone. Higher percentage indicates more aggressive positioning or successful short game.'
             },
             padel: {
                 name: 'Padel',
@@ -555,36 +555,24 @@
                 summary += `<br><br><strong>🧱 Length Game & Rail Quality:</strong> Only <span class="highlight-p1">${hasRailData}</span> has sufficient ball tracking data for rail analysis. <span class="highlight-p2">${noRailData}</span>'s rail tightness could not be measured.`;
             }
             
-            // Front Court Analysis
+            // Front Court Analysis - uses reliable player positioning (not ball detection)
             const p1FrontPct = p1.front_court_pct ?? 0;
             const p2FrontPct = p2.front_court_pct ?? 0;
-            const p1Dropshots = p1.dropshots ?? 0;
-            const p2Dropshots = p2.dropshots ?? 0;
-            const p1Retrieves = p1.retrieves ?? 0;
-            const p2Retrieves = p2.retrieves ?? 0;
-            const totalDrops = p1Dropshots + p2Dropshots;
+            const frontPctDiff = Math.abs(p1FrontPct - p2FrontPct);
             
-            if (totalDrops > 0 || Math.abs(p1FrontPct - p2FrontPct) > 3) {
+            if (frontPctDiff > 3) {
+                const frontWinner = p1FrontPct > p2FrontPct ? names.player1 : names.player2;
+                const frontLoser = p1FrontPct > p2FrontPct ? names.player2 : names.player1;
+                const frontWinnerPct = Math.max(p1FrontPct, p2FrontPct);
+                const frontLoserPct = Math.min(p1FrontPct, p2FrontPct);
+                
                 summary += `<br><br><strong>🎯 Front Court Battle:</strong> `;
+                summary += `<span class="highlight-p1">${frontWinner}</span> spent <strong>${frontWinnerPct.toFixed(0)}%</strong> of time in the front court compared to <span class="highlight-p2">${frontLoser}</span>'s <strong>${frontLoserPct.toFixed(0)}%</strong>. `;
                 
-                if (p1Dropshots > p2Dropshots + 2) {
-                    summary += `<span class="highlight-p1">${names.player1}</span> is using more drop shots (<strong>${p1Dropshots}</strong> vs ${p2Dropshots}), putting pressure on their opponent. `;
-                } else if (p2Dropshots > p1Dropshots + 2) {
-                    summary += `<span class="highlight-p2">${names.player2}</span> is using more drop shots (<strong>${p2Dropshots}</strong> vs ${p1Dropshots}), putting pressure on their opponent. `;
-                } else if (totalDrops > 0) {
-                    summary += `Both players are using drop shots similarly (${p1Dropshots} vs ${p2Dropshots}). `;
-                }
-                
-                if (p1Retrieves > p2Retrieves + 2) {
-                    summary += `<span class="highlight-p1">${names.player1}</span> is having to retrieve more drops (<strong>${p1Retrieves}</strong> vs ${p2Retrieves}), showing they're being pulled to the front more often.`;
-                } else if (p2Retrieves > p1Retrieves + 2) {
-                    summary += `<span class="highlight-p2">${names.player2}</span> is having to retrieve more drops (<strong>${p2Retrieves}</strong> vs ${p1Retrieves}), showing they're being pulled to the front more often.`;
-                }
-                
-                if (Math.abs(p1FrontPct - p2FrontPct) > 5) {
-                    const frontWinner = p1FrontPct > p2FrontPct ? names.player1 : names.player2;
-                    const frontLoser = p1FrontPct > p2FrontPct ? names.player2 : names.player1;
-                    summary += ` <span class="highlight-p1">${frontWinner}</span> spent more time in the front court (<strong>${Math.max(p1FrontPct, p2FrontPct).toFixed(0)}%</strong> vs ${Math.min(p1FrontPct, p2FrontPct).toFixed(0)}%).`;
+                if (frontPctDiff > 10) {
+                    summary += `This <strong>${frontPctDiff.toFixed(0)} percentage point gap</strong> indicates <span class="highlight-p1">${frontWinner}</span> is controlling the front of the court, either through effective drop shots or by forcing their opponent to stay back.`;
+                } else {
+                    summary += `<span class="highlight-p1">${frontWinner}</span> is spending more time attacking at the front.`;
                 }
             }
             
@@ -668,24 +656,22 @@
             const p2Running = p2.total_running_score ?? p2.running_score ?? 0;
             const p1Attacks = p1.total_attack_score ?? p1.attack_score ?? 0;
             const p2Attacks = p2.total_attack_score ?? p2.attack_score ?? 0;
-            // Rail data - use pre-calculated inches values for better precision
-            const p1RailInches = p1.avg_rail_distance_inches ?? -1;
-            const p2RailInches = p2.avg_rail_distance_inches ?? -1;
-            const p1RailPct = p1.avg_rail_distance_pct ?? -1;
-            const p2RailPct = p2.avg_rail_distance_pct ?? -1;
-            const p1Rail = p1RailInches > 0 ? p1RailInches : (p1RailPct > 0 ? p1RailPct / 100 * 252 : 0);
-            const p2Rail = p2RailInches > 0 ? p2RailInches : (p2RailPct > 0 ? p2RailPct / 100 * 252 : 0);
-            // Support both field names for tight rail count
-            const p1TightRails = p1.tight_rail_count ?? p1.total_tight_rails ?? 0;
-            const p2TightRails = p2.tight_rail_count ?? p2.total_tight_rails ?? 0;
+            // Rail data - using COMPARATIVE metrics (tight rail counts, not absolute measurements)
+            const p1TightRails = p1.tight_rail_count ?? 0;
+            const p2TightRails = p2.tight_rail_count ?? 0;
+            const p1TightRailPct = p1.tight_rail_pct ?? 0;
+            const p2TightRailPct = p2.tight_rail_pct ?? 0;
+            const railComparison = analysis.tight_rails?.comparison || {};
+            const tighterRailsPct = railComparison.tighter_rails_pct ?? 0;
+            const tightRailAdvantage = railComparison.tight_rail_advantage ?? 'N/A';
+            const railWinnerFromAnalysis = railComparison.winner ?? analysis.tight_rails?.analysis?.winner ?? 'N/A';
             
-            // Front court data
+            // Front court data - using COMPARATIVE metrics (player position %, no dropshot counts)
             const p1FrontPct = p1.front_court_pct ?? 0;
             const p2FrontPct = p2.front_court_pct ?? 0;
-            const p1Dropshots = p1.dropshots ?? 0;
-            const p2Dropshots = p2.dropshots ?? 0;
-            const p1Retrieves = p1.retrieves ?? 0;
-            const p2Retrieves = p2.retrieves ?? 0;
+            const frontCourtComparison = analysis.front_court?.comparison || {};
+            const frontCourtAdvantagePct = frontCourtComparison.front_court_advantage_pct ?? 0;
+            const frontCourtWinner = frontCourtComparison.front_court_winner ?? analysis.front_court?.analysis?.winner ?? 'N/A';
             const frontCourtAnalysis = analysis.front_court || {};
             
             // Calculate percentages for bars
@@ -1041,52 +1027,48 @@
                             <div class="analysis-text">${analysis.attack?.summary || 'Analysis not available.'}</div>
                         </div>
 
-                        <!-- Tight Rails -->
+                        <!-- Tight Rails (Comparative) -->
                         <div class="metric-card full-width">
                             <div class="metric-header">
                                 <span class="metric-name">🧱 ${labels.rail}</span>
-                                <span class="metric-winner ${p1Rail && p2Rail ? getWinnerClass(p1Rail, p2Rail, true) : 'tie'}" id="railWinner">${p1Rail && p2Rail ? getWinnerName(p1Rail, p2Rail, true) : 'N/A'}</span>
+                                <span class="metric-winner ${railWinnerFromAnalysis === 'Player 1' ? 'p1' : railWinnerFromAnalysis === 'Player 2' ? 'p2' : 'tie'}" id="railWinner">${railWinnerFromAnalysis === 'Player 1' ? playerNames.player1 : railWinnerFromAnalysis === 'Player 2' ? playerNames.player2 : railWinnerFromAnalysis}</span>
                                 </div>
-                            <p class="metric-desc">${labels.rail_desc}</p>
+                            <p class="metric-desc">Who hit tighter rails? Compares the number of shots kept close to the wall.</p>
                             <div class="metric-bars">
                                 <div class="metric-player p1">
                                     <div class="metric-player-label player1-name">${playerNames.player1}</div>
-                                    <div class="metric-player-value">${p1Rail ? p1Rail.toFixed(0) + '"' : 'N/A'}</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p1TightRails} tight shots</div>
+                                    <div class="metric-player-value">${p1TightRails} tight</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p1TightRailPct}% of tight rails</div>
                             </div>
                                 <div class="metric-player p2">
                                     <div class="metric-player-label player2-name">${playerNames.player2}</div>
-                                    <div class="metric-player-value">${p2Rail ? p2Rail.toFixed(0) + '"' : 'N/A'}</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p2TightRails} tight shots</div>
+                                    <div class="metric-player-value">${p2TightRails} tight</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p2TightRailPct}% of tight rails</div>
                                 </div>
                                 </div>
-                            <div class="analysis-text">${p1Rail > 0 && p2Rail > 0 
-                                ? (p1Rail < p2Rail 
-                                    ? `${playerNames.player1} kept the ball closer to the wall (avg ${p1Rail.toFixed(0)}") compared to ${playerNames.player2} (${p2Rail.toFixed(0)}").`
-                                    : `${playerNames.player2} kept the ball closer to the wall (avg ${p2Rail.toFixed(0)}") compared to ${playerNames.player1} (${p1Rail.toFixed(0)}").`)
-                                : 'Rail analysis not available.'}</div>
+                            <div class="analysis-text">${analysis.tight_rails?.analysis?.summary || 'Rail analysis not available.'}</div>
                             </div>
 
-                        <!-- Front Court Play -->
+                        <!-- Front Court Play (Comparative - Player Position Based) -->
                         <div class="metric-card full-width">
                             <div class="metric-header">
                                 <span class="metric-name">🎯 ${labels.front_court}</span>
-                                <span class="metric-winner ${(p1Dropshots - p1Retrieves) !== (p2Dropshots - p2Retrieves) ? ((p1Dropshots - p1Retrieves) > (p2Dropshots - p2Retrieves) ? 'p1' : 'p2') : 'tie'}" id="frontCourtWinner">${frontCourtAnalysis.winner || 'N/A'}</span>
+                                <span class="metric-winner ${frontCourtWinner === 'Player 1' ? 'p1' : frontCourtWinner === 'Player 2' ? 'p2' : 'tie'}" id="frontCourtWinner">${frontCourtWinner === 'Player 1' ? playerNames.player1 : frontCourtWinner === 'Player 2' ? playerNames.player2 : frontCourtWinner}</span>
                             </div>
-                            <p class="metric-desc">${labels.front_court_desc}</p>
+                            <p class="metric-desc">Who controlled the front of the court? Based on player positioning.</p>
                             <div class="metric-bars">
                                 <div class="metric-player p1">
                                     <div class="metric-player-label player1-name">${playerNames.player1}</div>
-                                    <div class="metric-player-value">${p1FrontPct}% time</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p1Dropshots} drops hit • ${p1Retrieves} retrieved</div>
+                                    <div class="metric-player-value">${p1FrontPct}%</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front court</div>
                                 </div>
                                 <div class="metric-player p2">
                                     <div class="metric-player-label player2-name">${playerNames.player2}</div>
-                                    <div class="metric-player-value">${p2FrontPct}% time</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${p2Dropshots} drops hit • ${p2Retrieves} retrieved</div>
+                                    <div class="metric-player-value">${p2FrontPct}%</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front court</div>
                                 </div>
                             </div>
-                            <div class="analysis-text">${frontCourtAnalysis.summary || 'Front court analysis not available.'}</div>
+                            <div class="analysis-text">${frontCourtAnalysis.analysis?.summary || frontCourtAnalysis.summary || 'Front court analysis not available.'}</div>
                         </div>
                             </div>
                         </div>
@@ -1189,13 +1171,13 @@
             const p1Attacks = p1Data.total_attack_score ?? p1Data.attack_score ?? 0;
             const p2Attacks = p2Data.total_attack_score ?? p2Data.attack_score ?? 0;
             
-            // Rails (lower is better)
-            const p1Rail = p1Data.avg_rail_distance_inches ?? p1Data.avg_rail_distance ?? 0;
-            const p2Rail = p2Data.avg_rail_distance_inches ?? p2Data.avg_rail_distance ?? 0;
+            // Rails (more tight rails is better - comparative metric)
+            const p1TightRails = p1Data.tight_rail_count ?? 0;
+            const p2TightRails = p2Data.tight_rail_count ?? 0;
             
-            // Front court (higher drops - retrieves is better)
-            const p1FrontScore = (p1Data.dropshots ?? 0) - (p1Data.retrieves ?? 0);
-            const p2FrontScore = (p2Data.dropshots ?? 0) - (p2Data.retrieves ?? 0);
+            // Front court (higher % is better - player position based)
+            const p1FrontPct = p1Data.front_court_pct ?? 0;
+            const p2FrontPct = p2Data.front_court_pct ?? 0;
             
             // Update ALL metric winner badges
             const updateWinner = (id, p1Val, p2Val, lowerIsBetter = false) => {
@@ -1212,8 +1194,8 @@
             updateWinner('scrambleWinner', p1Scramble, p2Scramble, true);
             updateWinner('runningWinner', p1Running, p2Running);
             updateWinner('attackWinner', p1Attacks, p2Attacks);
-            updateWinner('railWinner', p1Rail, p2Rail, true);
-            updateWinner('frontCourtWinner', p1FrontScore, p2FrontScore);
+            updateWinner('railWinner', p1TightRails, p2TightRails);  // More tight rails = better
+            updateWinner('frontCourtWinner', p1FrontPct, p2FrontPct);  // Higher front court % = better
             
             // Update any remaining analysis text that contains "Player 1" or "Player 2"
             document.querySelectorAll('.analysis-text').forEach(el => {
@@ -1259,12 +1241,11 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
             
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch(`/api/chat/${jobId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: message,
-                        job_id: jobId,
                         player_names: playerNames
                     })
                 });
