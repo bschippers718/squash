@@ -333,9 +333,9 @@ def extract_player_identification_frame(video_path, detection_data, output_path)
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    best_frame_num = None
-    best_score = -float('inf')
-    best_players = None
+    # Keep track of top N best frames (in case some can't be read due to video corruption)
+    top_frames = []  # List of (score, frame_num, players)
+    max_candidates = 10  # Keep top 10 candidates
     
     # Also track best single-player frame as fallback
     best_single_frame_num = None
@@ -367,38 +367,58 @@ def extract_player_identification_frame(video_path, detection_data, output_path)
             # Score this frame for back-of-court suitability
             score, sorted_players = score_back_of_court_frame(persons, frame_height, frame_width)
             
-            if score > best_score and sorted_players is not None:
-                best_score = score
-                best_frame_num = frame_num
-                best_players = sorted_players
+            if sorted_players is not None:
+                top_frames.append((score, frame_num, sorted_players))
+                # Keep only top N candidates
+                top_frames.sort(key=lambda x: x[0], reverse=True)
+                top_frames = top_frames[:max_candidates]
         elif len(persons) == 1 and best_single_frame_num is None:
             # Track single player frame as fallback
             best_single_frame_num = frame_num
             best_single_players = persons
     
-    # Use best 2-player frame, or fall back to single player frame
-    if best_frame_num is None:
-        if best_single_frame_num is not None:
-            print(f"Warning: No frame with 2 players found, using single player frame")
+    # Try to read frames from best to worst until one succeeds
+    best_frame_num = None
+    best_players = None
+    best_score = -float('inf')
+    frame = None
+    
+    for score, frame_num, players in top_frames:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, frame_num - 1))
+        success, test_frame = cap.read()
+        if success:
+            best_frame_num = frame_num
+            best_players = players
+            best_score = score
+            frame = test_frame
+            print(f"Successfully read frame {frame_num} (score: {score:.2f})")
+            break
+        else:
+            print(f"Warning: Could not read frame {frame_num}, trying next candidate...")
+    
+    # Fallback to single player frame if no 2-player frame could be read
+    if frame is None and best_single_frame_num is not None:
+        print(f"Warning: No 2-player frame readable, trying single player frame {best_single_frame_num}")
+        cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, best_single_frame_num - 1))
+        success, frame = cap.read()
+        if success:
             best_frame_num = best_single_frame_num
             best_players = best_single_players
-        else:
-            # Last resort: just use a frame from the middle of the video
-            print(f"Warning: No player detections found, using middle frame as fallback")
-            best_frame_num = total_frames // 2
+    
+    # Last resort: try middle of video
+    if frame is None:
+        print(f"Warning: No player frames readable, trying middle frame as fallback")
+        middle_frame = total_frames // 2
+        cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, middle_frame - 1))
+        success, frame = cap.read()
+        if success:
+            best_frame_num = middle_frame
             best_players = []
     
-    if best_frame_num is None:
-        cap.release()
-        return None
-    
-    # Seek to the best frame and extract it
-    cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, best_frame_num - 1))
-    success, frame = cap.read()
     cap.release()
     
-    if not success:
-        print(f"Warning: Could not read frame {best_frame_num} from video")
+    if frame is None:
+        print(f"Error: Could not read any frame from video")
         return None
     
     # Draw boxes around players with labels (if any detected)
@@ -466,14 +486,15 @@ def get_model():
     global _model
     if _model is None:
         # Try local model first, otherwise auto-download from ultralytics
-        local_model = Path(__file__).parent / 'yolov8n.pt'
+        # Using yolov8m (medium) for better ball detection accuracy
+        local_model = Path(__file__).parent / 'yolov8m.pt'
         if local_model.exists():
             print(f"Loading local YOLO model from {local_model}")
             _model = YOLO(str(local_model))
         else:
-            print("Local model not found, auto-downloading yolov8n.pt...")
-            _model = YOLO('yolov8n.pt')  # Auto-downloads from ultralytics
-            print("Model downloaded successfully!")
+            print("Local model not found, auto-downloading yolov8m.pt...")
+            _model = YOLO('yolov8m.pt')  # Auto-downloads from ultralytics
+            print("YOLOv8m model downloaded successfully!")
     return _model
 
 
@@ -809,11 +830,16 @@ def process_video(video_path, output_dir, progress_callback=None, sport='squash'
     player_id_frame = None
     player_id_frame_path = os.path.join(output_dir, f"{video_name}_players.jpg")
     try:
+        print(f"[video_processor] Extracting player identification frame to {player_id_frame_path}...")
         player_id_frame = extract_player_identification_frame(video_path, detection_data, player_id_frame_path)
         if player_id_frame:
-            print(f"Extracted player identification frame from frame {player_id_frame['frame_number']}")
+            print(f"[video_processor] Extracted player identification frame from frame {player_id_frame['frame_number']}")
+        else:
+            print(f"[video_processor] Warning: extract_player_identification_frame returned None")
     except Exception as e:
-        print(f"Warning: Could not extract player identification frame: {e}")
+        import traceback
+        print(f"[video_processor] Error extracting player identification frame: {e}")
+        traceback.print_exc()
         player_id_frame = None
     
     # Detect player colors (as backup/additional info)

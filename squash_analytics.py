@@ -243,30 +243,89 @@ def calculate_wall_distances(ball_bbox, video_width, video_height):
         'back_wall': video_height - ball_center[1]  # Distance from bottom
     }
 
+def _finalize_rail_shot(shot_data, p1_rail_shots, p2_rail_shots, min_vertical_ratio):
+    """
+    Finalize a shot sequence and determine if it was a valid rail shot.
+    A valid rail shot:
+    1. Has the ball staying on one side of the court (wall_side is set)
+    2. Has more vertical movement than horizontal (traveling down the wall)
+    3. Has a measurable minimum distance from the wall
+    """
+    if not shot_data['wall_side']:
+        return  # Ball crossed court, not a rail
+    
+    positions = shot_data['positions']
+    if len(positions) < 2:
+        return
+    
+    # Calculate total movement
+    start_pos = positions[0]
+    end_pos = positions[-1]
+    total_dx = abs(end_pos[0] - start_pos[0])
+    total_dy = abs(end_pos[1] - start_pos[1])
+    
+    # Check if movement is more vertical than horizontal (rail characteristic)
+    if total_dx > 0 and total_dy / max(total_dx, 1) < min_vertical_ratio:
+        return  # Too much horizontal movement, likely a cross-court or boast
+    
+    # Find minimum wall distance during the shot (the "tightness")
+    wall_distances = [p[2] for p in positions]
+    min_wall_dist = min(wall_distances)
+    shot_length = math.sqrt(total_dx**2 + total_dy**2)
+    
+    # Attribute to the correct player
+    if shot_data['player'] == 1:
+        p1_rail_shots.append((min_wall_dist, shot_length))
+    else:
+        p2_rail_shots.append((min_wall_dist, shot_length))
+
 def analyze_tight_rails(frames_data, video_width, video_height):
     """
     Analyze how tight each player's rail shots are.
-    A tight rail is when the ball is close to the side wall.
     
-    Uses ball position changes to attribute shots to the player who was
-    closer to the ball when its trajectory changed (indicating a hit).
+    A RAIL SHOT is defined as:
+    1. Ball traveling roughly parallel to the side wall (more vertical than horizontal movement)
+    2. Ball staying within 25% of court width from the wall during the shot
+    3. Ball traveling a significant distance (not just bouncing in place)
+    
+    For each detected rail shot, we measure the MINIMUM distance from the wall
+    during that shot's trajectory - this is the "tightness" of the rail.
+    
+    Professional tight rails are typically 6-18 inches from the wall.
     """
-    # Track ball positions when near each player
-    p1_rail_distances = []  # Distances from side walls when P1 likely hit
-    p2_rail_distances = []  # Distances from side walls when P2 likely hit
+    # Track detected rail shots for each player
+    # Each entry is the minimum wall distance during a rail shot sequence
+    p1_rail_shots = []  # List of (min_distance, shot_length) tuples
+    p2_rail_shots = []
+    
+    # State for tracking current shot sequence
+    current_shot = {
+        'active': False,
+        'player': None,  # 1 or 2
+        'positions': [],  # List of (x, y, wall_dist) tuples
+        'start_frame': 0,
+        'wall_side': None  # 'left' or 'right'
+    }
     
     prev_ball_center = None
-    prev_ball_velocity = None
-    hit_cooldown = 0  # Frames to wait between detected hits
+    frames_since_hit = 0
     
-    for frame_data in frames_data:
+    # Thresholds (as percentage of court width)
+    RAIL_ZONE_PCT = 0.25  # Ball must be within 25% of wall to be considered a rail
+    MIN_SHOT_FRAMES = 5   # Minimum frames for a valid shot sequence
+    MIN_VERTICAL_RATIO = 0.5  # Vertical movement must be at least 50% of horizontal
+    
+    rail_zone_pixels = video_width * RAIL_ZONE_PCT
+    
+    for frame_idx, frame_data in enumerate(frames_data):
         ball_bbox = frame_data.get('ball')
         players = frame_data.get('players', [])
         
-        if hit_cooldown > 0:
-            hit_cooldown -= 1
-        
         if not ball_bbox or len(players) < 2:
+            # End current shot if ball lost
+            if current_shot['active'] and len(current_shot['positions']) >= MIN_SHOT_FRAMES:
+                _finalize_rail_shot(current_shot, p1_rail_shots, p2_rail_shots, MIN_VERTICAL_RATIO)
+            current_shot = {'active': False, 'player': None, 'positions': [], 'start_frame': 0, 'wall_side': None}
             prev_ball_center = None
             continue
         
@@ -278,159 +337,186 @@ def analyze_tight_rails(frames_data, video_width, video_height):
         players.sort(key=lambda p: p.get('id', 0))
         
         # Calculate wall distances
-        wall_dist = calculate_wall_distances(ball_bbox, video_width, video_height)
-        if not wall_dist:
-            prev_ball_center = ball_center
-            continue
+        left_wall_dist = ball_center[0]
+        right_wall_dist = video_width - ball_center[0]
+        min_wall_dist = min(left_wall_dist, right_wall_dist)
+        wall_side = 'left' if left_wall_dist < right_wall_dist else 'right'
         
-        # Minimum distance to either side wall (for rail shots)
-        min_side_wall_dist = min(wall_dist['left_wall'], wall_dist['right_wall'])
-        
-        # Calculate ball velocity (direction change indicates a hit)
+        # Detect hits (velocity direction change)
         hit_detected = False
         if prev_ball_center is not None:
-            current_velocity = (
-                ball_center[0] - prev_ball_center[0],
-                ball_center[1] - prev_ball_center[1]
-            )
+            dx = ball_center[0] - prev_ball_center[0]
+            dy = ball_center[1] - prev_ball_center[1]
+            velocity_mag = math.sqrt(dx**2 + dy**2)
             
-            # Check for direction change (indicates a hit)
-            if prev_ball_velocity is not None and hit_cooldown <= 0:
-                # Check if velocity changed significantly (dot product negative = direction change)
-                dot_product = (current_velocity[0] * prev_ball_velocity[0] + 
-                             current_velocity[1] * prev_ball_velocity[1])
-                velocity_magnitude = math.sqrt(current_velocity[0]**2 + current_velocity[1]**2)
+            # Significant movement indicates the ball is in play
+            if velocity_mag > 5:
+                frames_since_hit += 1
                 
-                # Direction changed or ball moved significantly
-                if dot_product < 0 or velocity_magnitude > 20:
-                    hit_detected = True
+                # Check for direction reversal (hit detection)
+                if frames_since_hit > 3:  # Allow some frames between hits
+                    # A hit is detected when ball changes direction significantly
+                    # This is a simplified check - look for x-direction reversal near a player
+                    p1_dist = calculate_distance(players[0]['center'], ball_center)
+                    p2_dist = calculate_distance(players[1]['center'], ball_center)
+                    
+                    near_player_threshold = video_width * 0.15  # Within 15% of court width
+                    
+                    if p1_dist < near_player_threshold or p2_dist < near_player_threshold:
+                        # Ball is near a player - potential hit
+                        hit_detected = True
+                        hitting_player = 1 if p1_dist < p2_dist else 2
+                        frames_since_hit = 0
+        
+        # If hit detected, finalize previous shot and start new one
+        if hit_detected:
+            # Finalize previous shot if it was a valid rail
+            if current_shot['active'] and len(current_shot['positions']) >= MIN_SHOT_FRAMES:
+                _finalize_rail_shot(current_shot, p1_rail_shots, p2_rail_shots, MIN_VERTICAL_RATIO)
             
-            prev_ball_velocity = current_velocity
-        else:
-            prev_ball_velocity = None
-        
-        # Determine which player is closer to the ball
-        p1_dist = calculate_distance(players[0]['center'], ball_center)
-        p2_dist = calculate_distance(players[1]['center'], ball_center)
-        
-        # Attribute shot to closer player
-        # Use a more generous threshold - players can be further from ball
-        max_attribution_distance = video_width * 0.4  # 40% of court width
-        
-        if p1_dist < max_attribution_distance or p2_dist < max_attribution_distance:
-            if p1_dist < p2_dist:
-                # Player 1 is closer - attribute this ball position to them
-                p1_rail_distances.append(min_side_wall_dist)
-                if hit_detected:
-                    hit_cooldown = 5  # Wait 5 frames before next hit detection
-            else:
-                # Player 2 is closer - attribute this ball position to them
-                p2_rail_distances.append(min_side_wall_dist)
-                if hit_detected:
-                    hit_cooldown = 5
+            # Start tracking new shot
+            current_shot = {
+                'active': True,
+                'player': hitting_player,
+                'positions': [(ball_center[0], ball_center[1], min_wall_dist)],
+                'start_frame': frame_idx,
+                'wall_side': wall_side if min_wall_dist < rail_zone_pixels else None
+            }
+        elif current_shot['active']:
+            # Continue tracking current shot
+            current_shot['positions'].append((ball_center[0], ball_center[1], min_wall_dist))
+            
+            # Update wall_side if ball enters rail zone
+            if min_wall_dist < rail_zone_pixels and current_shot['wall_side'] is None:
+                current_shot['wall_side'] = wall_side
+            
+            # End shot if ball leaves rail zone significantly (went cross-court)
+            if current_shot['wall_side'] is not None:
+                # Check if ball crossed to opposite side
+                if wall_side != current_shot['wall_side'] and min_wall_dist < rail_zone_pixels:
+                    # Ball went cross-court, not a rail shot
+                    current_shot['wall_side'] = None  # Mark as invalid rail
         
         prev_ball_center = ball_center
     
-    # Calculate averages - use median for more robust measurement
-    def safe_average(distances):
-        if not distances:
-            return None
-        # Remove outliers (ball positions in center of court)
-        filtered = [d for d in distances if d < video_width * 0.4]
-        if not filtered:
-            return sum(distances) / len(distances)
-        return sum(filtered) / len(filtered)
+    # Finalize any remaining shot
+    if current_shot['active'] and len(current_shot['positions']) >= MIN_SHOT_FRAMES:
+        _finalize_rail_shot(current_shot, p1_rail_shots, p2_rail_shots, MIN_VERTICAL_RATIO)
     
-    p1_avg_rail = safe_average(p1_rail_distances)
-    p2_avg_rail = safe_average(p2_rail_distances)
+    # Calculate statistics from detected rail shots
+    def calculate_rail_stats(rail_shots):
+        if not rail_shots:
+            return None, 0, 0
+        
+        # rail_shots is list of (min_distance, shot_length) tuples
+        min_distances = [shot[0] for shot in rail_shots]
+        
+        # Average of the minimum distances (tightest point of each rail)
+        avg_tightness = sum(min_distances) / len(min_distances)
+        
+        # Count of "tight" rails (minimum distance < 10% of court width, ~25 inches)
+        tight_threshold = video_width * 0.10
+        tight_count = sum(1 for d in min_distances if d < tight_threshold)
+        
+        return avg_tightness, len(rail_shots), tight_count
     
-    # Handle case where one or both players have no data
+    p1_avg_rail, p1_total_rails, p1_tight_count = calculate_rail_stats(p1_rail_shots)
+    p2_avg_rail, p2_total_rails, p2_tight_count = calculate_rail_stats(p2_rail_shots)
+    
+    # Handle case where one or both players have no detected rail shots
     if p1_avg_rail is None and p2_avg_rail is None:
-        # No rail data at all
         return {
             'player1': {
-                'avg_wall_distance': -1,  # -1 indicates no data
+                'avg_wall_distance': -1,
+                'avg_wall_distance_pct': -1,
+                'avg_wall_distance_ft': -1,
+                'avg_wall_distance_inches': -1,
                 'tight_rail_count': 0,
+                'total_rail_shots': 0,
                 'total_shots_analyzed': 0
             },
             'player2': {
-                'avg_wall_distance': -1,  # -1 indicates no data
+                'avg_wall_distance': -1,
+                'avg_wall_distance_pct': -1,
+                'avg_wall_distance_ft': -1,
+                'avg_wall_distance_inches': -1,
                 'tight_rail_count': 0,
+                'total_rail_shots': 0,
                 'total_shots_analyzed': 0
             },
             'analysis': {
                 'winner': 'N/A',
-                'summary': 'Unable to analyze rail tightness - ball tracking data insufficient.'
+                'summary': 'Unable to analyze rail tightness - insufficient ball tracking data to detect rail shots.'
             }
         }
     
-    # If only one player has data, mark the other as no data
-    p1_has_data = p1_avg_rail is not None and len(p1_rail_distances) >= 5
-    p2_has_data = p2_avg_rail is not None and len(p2_rail_distances) >= 5
+    # Set defaults for missing data
+    if p1_avg_rail is None:
+        p1_avg_rail = -1
+    if p2_avg_rail is None:
+        p2_avg_rail = -1
     
-    if not p1_has_data:
-        p1_avg_rail = -1  # -1 indicates no data
-    if not p2_has_data:
-        p2_avg_rail = -1  # -1 indicates no data
-    
-    # Count tight rails (within 15% of court width from wall - more generous threshold)
-    tight_threshold = video_width * 0.15
-    p1_tight_count = sum(1 for d in p1_rail_distances if d < tight_threshold)
-    p2_tight_count = sum(1 for d in p2_rail_distances if d < tight_threshold)
-    
-    # Analysis - handle missing data cases
-    if p1_avg_rail < 0 and p2_avg_rail < 0:
-        rail_winner = 'N/A'
-        rail_analysis = "Unable to analyze rail tightness - ball tracking data insufficient for both players."
-    elif p1_avg_rail < 0:
-        rail_winner = 'Player 2'
-        rail_analysis = "Only Player 2 has sufficient ball tracking data for rail analysis. Player 1's rail tightness could not be measured."
-    elif p2_avg_rail < 0:
-        rail_winner = 'Player 1'
-        rail_analysis = "Only Player 1 has sufficient ball tracking data for rail analysis. Player 2's rail tightness could not be measured."
-    elif p1_avg_rail > 0 and p2_avg_rail > 0:
-        ratio = max(p1_avg_rail, p2_avg_rail) / min(p1_avg_rail, p2_avg_rail)
-        if p1_avg_rail < p2_avg_rail and ratio > 1.15:
-            rail_winner = 'Player 1'
-            rail_analysis = "Player 1 is hitting tighter rails, keeping the ball closer to the wall and making retrieval more difficult for their opponent."
-        elif p2_avg_rail < p1_avg_rail and ratio > 1.15:
-            rail_winner = 'Player 2'
-            rail_analysis = "Player 2 is hitting tighter rails, keeping the ball closer to the wall and making retrieval more difficult for their opponent."
-        else:
-            rail_winner = 'Even'
-            rail_analysis = "Both players are hitting rails with similar tightness. Neither has a clear advantage in wall proximity."
-    else:
-        rail_winner = 'Even'
-        rail_analysis = "Both players are hitting rails with similar tightness. Neither has a clear advantage in wall proximity."
-    
-    # Calculate percentage of court width (resolution-independent)
-    # A squash court is ~21 feet wide, so we can estimate feet from percentage
+    # Calculate percentage of court width and convert to real-world units
+    # A squash court is ~21 feet (252 inches) wide
     SQUASH_COURT_WIDTH_FT = 21.0
+    SQUASH_COURT_WIDTH_INCHES = 252.0
+    
     p1_pct = (p1_avg_rail / video_width * 100) if p1_avg_rail > 0 else -1
     p2_pct = (p2_avg_rail / video_width * 100) if p2_avg_rail > 0 else -1
     p1_feet = (p1_pct / 100 * SQUASH_COURT_WIDTH_FT) if p1_pct > 0 else -1
     p2_feet = (p2_pct / 100 * SQUASH_COURT_WIDTH_FT) if p2_pct > 0 else -1
+    p1_inches = (p1_pct / 100 * SQUASH_COURT_WIDTH_INCHES) if p1_pct > 0 else -1
+    p2_inches = (p2_pct / 100 * SQUASH_COURT_WIDTH_INCHES) if p2_pct > 0 else -1
+    
+    # Generate analysis
+    if p1_avg_rail < 0 and p2_avg_rail < 0:
+        rail_winner = 'N/A'
+        rail_analysis = "Unable to analyze rail tightness - insufficient ball tracking data."
+    elif p1_avg_rail < 0:
+        rail_winner = 'Player 2'
+        rail_analysis = f"Player 2 hit {p2_total_rails} rail shots with average tightness of {p2_inches:.0f}\" ({p2_tight_count} tight). Player 1's rails could not be measured."
+    elif p2_avg_rail < 0:
+        rail_winner = 'Player 1'
+        rail_analysis = f"Player 1 hit {p1_total_rails} rail shots with average tightness of {p1_inches:.0f}\" ({p1_tight_count} tight). Player 2's rails could not be measured."
+    elif p1_avg_rail > 0 and p2_avg_rail > 0:
+        # Lower is better (closer to wall)
+        if p1_inches < p2_inches:
+            rail_winner = 'Player 1'
+            rail_analysis = f"Player 1 hit tighter rails (avg {p1_inches:.0f}\" from wall, {p1_tight_count}/{p1_total_rails} tight) vs Player 2 ({p2_inches:.0f}\", {p2_tight_count}/{p2_total_rails} tight)."
+        elif p2_inches < p1_inches:
+            rail_winner = 'Player 2'
+            rail_analysis = f"Player 2 hit tighter rails (avg {p2_inches:.0f}\" from wall, {p2_tight_count}/{p2_total_rails} tight) vs Player 1 ({p1_inches:.0f}\", {p1_tight_count}/{p1_total_rails} tight)."
+        else:
+            rail_winner = 'Even'
+            rail_analysis = f"Both players hit rails with similar tightness (~{p1_inches:.0f}\" from wall)."
+    else:
+        rail_winner = 'N/A'
+        rail_analysis = "Rail analysis unavailable."
     
     return {
         'player1': {
-            'avg_wall_distance': round(p1_avg_rail, 1),  # Keep raw pixels for backwards compat
+            'avg_wall_distance': round(p1_avg_rail, 1) if p1_avg_rail > 0 else -1,
             'avg_wall_distance_pct': round(p1_pct, 1) if p1_pct > 0 else -1,
             'avg_wall_distance_ft': round(p1_feet, 1) if p1_feet > 0 else -1,
+            'avg_wall_distance_inches': round(p1_inches, 1) if p1_inches > 0 else -1,
             'tight_rail_count': p1_tight_count,
-            'total_shots_analyzed': len(p1_rail_distances)
+            'total_rail_shots': p1_total_rails,
+            'total_shots_analyzed': p1_total_rails
         },
         'player2': {
-            'avg_wall_distance': round(p2_avg_rail, 1),
+            'avg_wall_distance': round(p2_avg_rail, 1) if p2_avg_rail > 0 else -1,
             'avg_wall_distance_pct': round(p2_pct, 1) if p2_pct > 0 else -1,
             'avg_wall_distance_ft': round(p2_feet, 1) if p2_feet > 0 else -1,
+            'avg_wall_distance_inches': round(p2_inches, 1) if p2_inches > 0 else -1,
             'tight_rail_count': p2_tight_count,
-            'total_shots_analyzed': len(p2_rail_distances)
+            'total_rail_shots': p2_total_rails,
+            'total_shots_analyzed': p2_total_rails
         },
         'analysis': {
             'winner': rail_winner,
             'summary': rail_analysis
         },
-        'video_width': video_width  # Store for reference
+        'video_width': video_width
     }
 
 # =============================================================================
@@ -1279,6 +1365,7 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'avg_rail_distance': tight_rails['player1']['avg_wall_distance'],
             'avg_rail_distance_pct': tight_rails['player1'].get('avg_wall_distance_pct', -1),
             'avg_rail_distance_ft': tight_rails['player1'].get('avg_wall_distance_ft', -1),
+            'avg_rail_distance_inches': tight_rails['player1'].get('avg_wall_distance_inches', -1),
             'tight_rail_count': tight_rails['player1']['tight_rail_count'],
             'front_court_pct': front_court['player1']['front_court_pct'],
             'dropshots': front_court['player1']['dropshots'],
@@ -1293,6 +1380,7 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'avg_rail_distance': tight_rails['player2']['avg_wall_distance'],
             'avg_rail_distance_pct': tight_rails['player2'].get('avg_wall_distance_pct', -1),
             'avg_rail_distance_ft': tight_rails['player2'].get('avg_wall_distance_ft', -1),
+            'avg_rail_distance_inches': tight_rails['player2'].get('avg_wall_distance_inches', -1),
             'tight_rail_count': tight_rails['player2']['tight_rail_count'],
             'front_court_pct': front_court['player2']['front_court_pct'],
             'dropshots': front_court['player2']['dropshots'],
@@ -1987,9 +2075,52 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         p1_avg_t_dom = p2_avg_t_dom = 50
         p1_avg_front_pct = p2_avg_front_pct = 0
     
-    # Calculate rail averages
+    # Calculate rail averages - use pre-calculated percentages from games when available
+    # (more accurate since they were calculated with correct video width)
     p1_avg_rail = round(p1_total_rail_dist / p1_rail_games, 1) if p1_rail_games > 0 else -1
     p2_avg_rail = round(p2_total_rail_dist / p2_rail_games, 1) if p2_rail_games > 0 else -1
+    
+    # Use pre-calculated percentage/feet/inches from games if available
+    p1_total_rail_pct = 0
+    p2_total_rail_pct = 0
+    p1_rail_pct_games = 0
+    p2_rail_pct_games = 0
+    
+    for game_data in game_analytics_list:
+        p1 = game_data.get('player1', {})
+        p2 = game_data.get('player2', {})
+        
+        p1_pct = p1.get('avg_rail_distance_pct', -1)
+        p2_pct = p2.get('avg_rail_distance_pct', -1)
+        
+        if p1_pct > 0:
+            p1_total_rail_pct += p1_pct
+            p1_rail_pct_games += 1
+        if p2_pct > 0:
+            p2_total_rail_pct += p2_pct
+            p2_rail_pct_games += 1
+    
+    # Calculate average percentages from games
+    SQUASH_COURT_WIDTH_FT = 21.0
+    SQUASH_COURT_WIDTH_INCHES = 252.0
+    
+    if p1_rail_pct_games > 0:
+        p1_avg_rail_pct = round(p1_total_rail_pct / p1_rail_pct_games, 1)
+        p1_avg_rail_ft = round(p1_avg_rail_pct / 100 * SQUASH_COURT_WIDTH_FT, 1)
+        p1_avg_rail_inches = round(p1_avg_rail_pct / 100 * SQUASH_COURT_WIDTH_INCHES, 1)
+    else:
+        p1_avg_rail_pct = -1
+        p1_avg_rail_ft = -1
+        p1_avg_rail_inches = -1
+    
+    if p2_rail_pct_games > 0:
+        p2_avg_rail_pct = round(p2_total_rail_pct / p2_rail_pct_games, 1)
+        p2_avg_rail_ft = round(p2_avg_rail_pct / 100 * SQUASH_COURT_WIDTH_FT, 1)
+        p2_avg_rail_inches = round(p2_avg_rail_pct / 100 * SQUASH_COURT_WIDTH_INCHES, 1)
+    else:
+        p2_avg_rail_pct = -1
+        p2_avg_rail_ft = -1
+        p2_avg_rail_inches = -1
     
     # Determine match trends
     def calculate_trend(values):
@@ -2120,23 +2251,23 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         else:
             analysis_text += f"Player 2 showed significant improvement across the match, increasing T-control by {p2_t_dom_change:.0f}%. "
     
-    # Rail analysis
+    # Rail analysis (use inches for better precision)
     rail_analysis = {}
-    if p1_avg_rail > 0 and p2_avg_rail > 0:
-        if p1_avg_rail < p2_avg_rail:
+    if p1_avg_rail_inches > 0 and p2_avg_rail_inches > 0:
+        if p1_avg_rail_inches < p2_avg_rail_inches:
             rail_analysis = {
                 'winner': 'Player 1',
-                'summary': f"Player 1 hit tighter rails (avg {p1_avg_rail:.1f}px from wall) compared to Player 2 ({p2_avg_rail:.1f}px)."
+                'summary': f"Player 1 hit tighter rails (avg {p1_avg_rail_inches:.0f}\" from wall) compared to Player 2 ({p2_avg_rail_inches:.0f}\")."
             }
         else:
             rail_analysis = {
                 'winner': 'Player 2',
-                'summary': f"Player 2 hit tighter rails (avg {p2_avg_rail:.1f}px from wall) compared to Player 1 ({p1_avg_rail:.1f}px)."
+                'summary': f"Player 2 hit tighter rails (avg {p2_avg_rail_inches:.0f}\" from wall) compared to Player 1 ({p1_avg_rail_inches:.0f}\")."
             }
-    elif p1_avg_rail > 0:
-        rail_analysis = {'winner': 'Player 1', 'summary': 'Only Player 1 has sufficient rail tracking data.'}
-    elif p2_avg_rail > 0:
-        rail_analysis = {'winner': 'Player 2', 'summary': 'Only Player 2 has sufficient rail tracking data.'}
+    elif p1_avg_rail_inches > 0:
+        rail_analysis = {'winner': 'Player 1', 'summary': f'Only Player 1 has sufficient rail tracking data (avg {p1_avg_rail_inches:.0f}\" from wall).'}
+    elif p2_avg_rail_inches > 0:
+        rail_analysis = {'winner': 'Player 2', 'summary': f'Only Player 2 has sufficient rail tracking data (avg {p2_avg_rail_inches:.0f}\" from wall).'}
     else:
         rail_analysis = {'winner': 'N/A', 'summary': 'Insufficient ball tracking data for rail analysis.'}
     
@@ -2184,7 +2315,11 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'total_running_score': round(p1_total_running, 1),
             'total_attack_score': p1_total_attacks,
             'avg_rail_distance': p1_avg_rail,
+            'avg_rail_distance_pct': p1_avg_rail_pct,
+            'avg_rail_distance_ft': p1_avg_rail_ft,
+            'avg_rail_distance_inches': p1_avg_rail_inches,
             'total_tight_rails': p1_total_tight_rails,
+            'tight_rail_count': p1_total_tight_rails,  # Alias for compatibility
             't_dominance_trend': round(p1_t_dom_change, 1),
             'front_court_pct': round(p1_avg_front_pct, 1),
             'dropshots': p1_total_dropshots,
@@ -2198,7 +2333,11 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'total_running_score': round(p2_total_running, 1),
             'total_attack_score': p2_total_attacks,
             'avg_rail_distance': p2_avg_rail,
+            'avg_rail_distance_pct': p2_avg_rail_pct,
+            'avg_rail_distance_ft': p2_avg_rail_ft,
+            'avg_rail_distance_inches': p2_avg_rail_inches,
             'total_tight_rails': p2_total_tight_rails,
+            'tight_rail_count': p2_total_tight_rails,  # Alias for compatibility
             't_dominance_trend': round(p2_t_dom_change, 1),
             'front_court_pct': round(p2_avg_front_pct, 1),
             'dropshots': p2_total_dropshots,

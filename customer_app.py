@@ -30,6 +30,17 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__, template_folder='templates/customer', static_folder='static')
 
+# Disable caching for all responses
+@app.after_request
+def add_no_cache_headers(response):
+    """Add headers to prevent caching of API and HTML responses."""
+    # Don't cache JSON API responses or HTML pages
+    if response.content_type and ('application/json' in response.content_type or 'text/html' in response.content_type):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
 # Configuration
 UPLOAD_FOLDER = Path('uploads')
 RESULTS_FOLDER = Path('customer_results')

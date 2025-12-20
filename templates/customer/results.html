@@ -462,15 +462,15 @@
             const attackLoserVal = Math.min(p1Attacks, p2Attacks);
             const attackPercent = totalAttacks > 0 ? ((attackWinnerVal / totalAttacks) * 100).toFixed(0) : 50;
             
-            // Get rail data - use pre-calculated feet values, or fall back to percentage-based estimate
+            // Get rail data - use pre-calculated inches values for better precision
             // Support both single game (tight_rail_count) and combined match (total_tight_rails) field names
-            const p1RailFt = p1.avg_rail_distance_ft ?? -1;
-            const p2RailFt = p2.avg_rail_distance_ft ?? -1;
+            const p1RailInches = p1.avg_rail_distance_inches ?? -1;
+            const p2RailInches = p2.avg_rail_distance_inches ?? -1;
             const p1RailPct = p1.avg_rail_distance_pct ?? -1;
             const p2RailPct = p2.avg_rail_distance_pct ?? -1;
-            // Use feet if available, otherwise estimate from percentage (squash court is ~21ft wide)
-            const p1Rail = p1RailFt > 0 ? p1RailFt : (p1RailPct > 0 ? p1RailPct / 100 * 21 : -1);
-            const p2Rail = p2RailFt > 0 ? p2RailFt : (p2RailPct > 0 ? p2RailPct / 100 * 21 : -1);
+            // Use inches if available, otherwise estimate from percentage (squash court is ~252 inches wide)
+            const p1Rail = p1RailInches > 0 ? p1RailInches : (p1RailPct > 0 ? p1RailPct / 100 * 252 : -1);
+            const p2Rail = p2RailInches > 0 ? p2RailInches : (p2RailPct > 0 ? p2RailPct / 100 * 252 : -1);
             const p1TightRails = p1.tight_rail_count ?? p1.total_tight_rails ?? 0;
             const p2TightRails = p2.tight_rail_count ?? p2.total_tight_rails ?? 0;
             
@@ -547,7 +547,7 @@
                 const railWinnerTight = p1Rail < p2Rail ? p1TightRails : p2TightRails;
                 const railLoserTight = p1Rail < p2Rail ? p2TightRails : p1TightRails;
                 
-                summary += `<br><br><strong>🧱 Length Game & Rail Quality:</strong> <span class="highlight-p1">${railWinner}</span>'s average ball position was <strong>${railWinnerVal.toFixed(1)} ft</strong> from the wall (${railWinnerTight} tight shots), while <span class="highlight-p2">${railLoser}</span> averaged <strong>${railLoserVal.toFixed(1)} ft</strong> (${railLoserTight} tight shots). `;
+                summary += `<br><br><strong>🧱 Length Game & Rail Quality:</strong> <span class="highlight-p1">${railWinner}</span>'s average ball position was <strong>${railWinnerVal.toFixed(0)}"</strong> from the wall (${railWinnerTight} tight shots), while <span class="highlight-p2">${railLoser}</span> averaged <strong>${railLoserVal.toFixed(0)}"</strong> (${railLoserTight} tight shots). `;
                 summary += `<span class="highlight-p1">${railWinner}</span> kept the ball closer to the wall more consistently. Tight rails are the <strong>foundation of squash</strong> — they limit your opponent's options, prevent attacking returns, and create weak balls that can be punished.`;
             } else if (p1Rail > 0 || p2Rail > 0) {
                 const hasRailData = p1Rail > 0 ? names.player1 : names.player2;
@@ -668,13 +668,13 @@
             const p2Running = p2.total_running_score ?? p2.running_score ?? 0;
             const p1Attacks = p1.total_attack_score ?? p1.attack_score ?? 0;
             const p2Attacks = p2.total_attack_score ?? p2.attack_score ?? 0;
-            // Rail data - use pre-calculated feet values, or estimate from percentage
-            const p1RailFt = p1.avg_rail_distance_ft ?? -1;
-            const p2RailFt = p2.avg_rail_distance_ft ?? -1;
+            // Rail data - use pre-calculated inches values for better precision
+            const p1RailInches = p1.avg_rail_distance_inches ?? -1;
+            const p2RailInches = p2.avg_rail_distance_inches ?? -1;
             const p1RailPct = p1.avg_rail_distance_pct ?? -1;
             const p2RailPct = p2.avg_rail_distance_pct ?? -1;
-            const p1Rail = p1RailFt > 0 ? p1RailFt : (p1RailPct > 0 ? p1RailPct / 100 * 21 : 0);
-            const p2Rail = p2RailFt > 0 ? p2RailFt : (p2RailPct > 0 ? p2RailPct / 100 * 21 : 0);
+            const p1Rail = p1RailInches > 0 ? p1RailInches : (p1RailPct > 0 ? p1RailPct / 100 * 252 : 0);
+            const p2Rail = p2RailInches > 0 ? p2RailInches : (p2RailPct > 0 ? p2RailPct / 100 * 252 : 0);
             // Support both field names for tight rail count
             const p1TightRails = p1.tight_rail_count ?? p1.total_tight_rails ?? 0;
             const p2TightRails = p2.tight_rail_count ?? p2.total_tight_rails ?? 0;
@@ -723,8 +723,9 @@
                 const frameSources = [];
                 gameJobs.forEach((gj, i) => {
                     if (gj.job_id) {
-                        // Get the original video_name (may include job_id prefix already)
-                        let vnOriginal = (gj.video_name || gj.filename || '').replace(/\.[^/.]+$/, '');
+                        // Get the original video_name - it already has no extension
+                        // Only strip extension from filename if we're using that as fallback
+                        let vnOriginal = gj.video_name || (gj.filename ? gj.filename.replace(/\.[^/.]+$/, '') : '');
                         // Create a version without job_id prefix
                         let vnClean = vnOriginal;
                         if (vnClean.startsWith(gj.job_id + '_')) {
@@ -1050,19 +1051,19 @@
                             <div class="metric-bars">
                                 <div class="metric-player p1">
                                     <div class="metric-player-label player1-name">${playerNames.player1}</div>
-                                    <div class="metric-player-value">${p1Rail ? p1Rail.toFixed(1) + ' ft' : 'N/A'}</div>
+                                    <div class="metric-player-value">${p1Rail ? p1Rail.toFixed(0) + '"' : 'N/A'}</div>
                                     <div style="font-size: 0.8rem; color: var(--text-secondary);">${p1TightRails} tight shots</div>
                             </div>
                                 <div class="metric-player p2">
                                     <div class="metric-player-label player2-name">${playerNames.player2}</div>
-                                    <div class="metric-player-value">${p2Rail ? p2Rail.toFixed(1) + ' ft' : 'N/A'}</div>
+                                    <div class="metric-player-value">${p2Rail ? p2Rail.toFixed(0) + '"' : 'N/A'}</div>
                                     <div style="font-size: 0.8rem; color: var(--text-secondary);">${p2TightRails} tight shots</div>
                                 </div>
                                 </div>
                             <div class="analysis-text">${p1Rail > 0 && p2Rail > 0 
                                 ? (p1Rail < p2Rail 
-                                    ? `${playerNames.player1} kept the ball closer to the wall (avg ${p1Rail.toFixed(1)} ft) compared to ${playerNames.player2} (${p2Rail.toFixed(1)} ft).`
-                                    : `${playerNames.player2} kept the ball closer to the wall (avg ${p2Rail.toFixed(1)} ft) compared to ${playerNames.player1} (${p1Rail.toFixed(1)} ft).`)
+                                    ? `${playerNames.player1} kept the ball closer to the wall (avg ${p1Rail.toFixed(0)}") compared to ${playerNames.player2} (${p2Rail.toFixed(0)}").`
+                                    : `${playerNames.player2} kept the ball closer to the wall (avg ${p2Rail.toFixed(0)}") compared to ${playerNames.player1} (${p1Rail.toFixed(0)}").`)
                                 : 'Rail analysis not available.'}</div>
                             </div>
 
