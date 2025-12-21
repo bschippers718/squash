@@ -249,6 +249,57 @@
             border-left: 3px solid var(--accent); margin-top: 15px;
         }
         
+        /* Fatigue Graph - Clean Line Chart */
+        .fatigue-chart-wrapper {
+            margin: 20px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, rgba(18, 18, 26, 0.9) 0%, rgba(26, 26, 37, 0.9) 100%);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .fatigue-chart-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .fatigue-chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+        .fatigue-chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        .fatigue-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .fatigue-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .fatigue-legend-dot.p1 { background: var(--player1); box-shadow: 0 0 8px var(--player1); }
+        .fatigue-legend-dot.p2 { background: var(--player2); box-shadow: 0 0 8px var(--player2); }
+        .fatigue-insight {
+            margin-top: 15px;
+            padding: 12px 16px;
+            background: rgba(0, 212, 170, 0.08);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .fatigue-insight strong {
+            color: var(--text-primary);
+        }
+        
         /* Chat Section */
         .chat-card {
             background: var(--bg-card); border: 1px solid var(--border);
@@ -320,6 +371,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="bg-gradient"></div>
@@ -370,7 +422,9 @@
                 rail: 'Tight Rails',
                 rail_desc: 'How close shots are to the side wall — tighter rails are harder to retrieve.',
                 front_court: 'Front Court Play',
-                front_court_desc: 'Who\'s spending more time in the attacking front court zone. Higher percentage indicates more aggressive positioning or successful short game.'
+                front_court_desc: 'Who\'s spending more time in the attacking front court zone. Higher percentage indicates more aggressive positioning or successful short game.',
+                fatigue: 'Fatigue Score',
+                fatigue_desc: 'How much each player slowed down as the match progressed. Lower score = better conditioning. Tracks both average speed decline and burst speed (explosive movement) decline.'
             },
             padel: {
                 name: 'Padel',
@@ -386,7 +440,9 @@
                 rail: 'Wall Shots',
                 rail_desc: 'Effectiveness of shots using the walls.',
                 front_court: 'Net Play',
-                front_court_desc: 'Who\'s controlling the net position. Shows time at the net and aggressive volleys.'
+                front_court_desc: 'Who\'s controlling the net position. Shows time at the net and aggressive volleys.',
+                fatigue: 'Fatigue Score',
+                fatigue_desc: 'How much each player slowed down as the match progressed. Lower score = better conditioning.'
             }
         };
         
@@ -576,6 +632,39 @@
                 }
             }
             
+            // Fatigue Analysis - tracks speed decline over time
+            const p1Fatigue = p1.fatigue_score ?? 0;
+            const p2Fatigue = p2.fatigue_score ?? 0;
+            const p1SpeedDecline = p1.speed_decline_pct ?? 0;
+            const p2SpeedDecline = p2.speed_decline_pct ?? 0;
+            const p1BurstDecline = p1.burst_decline_pct ?? 0;
+            const p2BurstDecline = p2.burst_decline_pct ?? 0;
+            
+            if (p1Fatigue > 0 || p2Fatigue > 0 || p1SpeedDecline !== 0 || p2SpeedDecline !== 0) {
+                summary += `<br><br><strong>🔋 Conditioning & Fatigue:</strong> `;
+                
+                const fatigueWinner = p1Fatigue < p2Fatigue ? names.player1 : names.player2;
+                const fatigueLoser = p1Fatigue < p2Fatigue ? names.player2 : names.player1;
+                const fatigueWinnerScore = Math.min(p1Fatigue, p2Fatigue);
+                const fatigueLoserScore = Math.max(p1Fatigue, p2Fatigue);
+                const fatigueWinnerDecline = p1Fatigue < p2Fatigue ? p1SpeedDecline : p2SpeedDecline;
+                const fatigueLoserDecline = p1Fatigue < p2Fatigue ? p2SpeedDecline : p1SpeedDecline;
+                const fatigueWinnerBurst = p1Fatigue < p2Fatigue ? p1BurstDecline : p2BurstDecline;
+                const fatigueLoserBurst = p1Fatigue < p2Fatigue ? p2BurstDecline : p1BurstDecline;
+                
+                const fatigueDiff = Math.abs(p1Fatigue - p2Fatigue);
+                
+                if (fatigueDiff > 15) {
+                    summary += `<span class="highlight-p1">${fatigueWinner}</span> showed <strong>significantly better conditioning</strong>, with a fatigue score of <strong>${fatigueWinnerScore.toFixed(0)}</strong> (${fatigueWinnerDecline.toFixed(0)}% speed decline) compared to <span class="highlight-p2">${fatigueLoser}</span>'s <strong>${fatigueLoserScore.toFixed(0)}</strong> (${fatigueLoserDecline.toFixed(0)}% decline). `;
+                    summary += `<span class="highlight-p2">${fatigueLoser}</span> was visibly slowing down in the later stages, losing <strong>${fatigueLoserBurst.toFixed(0)}%</strong> of their burst speed. This kind of physical advantage often decides tight matches.`;
+                } else if (fatigueDiff > 5) {
+                    summary += `<span class="highlight-p1">${fatigueWinner}</span> maintained better pace throughout (fatigue: ${fatigueWinnerScore.toFixed(0)}, ${fatigueWinnerDecline.toFixed(0)}% decline) vs <span class="highlight-p2">${fatigueLoser}</span> (${fatigueLoserScore.toFixed(0)}, ${fatigueLoserDecline.toFixed(0)}% decline). `;
+                    summary += `<span class="highlight-p1">${fatigueWinner}</span>'s superior conditioning could be a factor in longer rallies.`;
+                } else {
+                    summary += `Both players maintained similar conditioning throughout the match. <span class="highlight-p1">${names.player1}</span> slowed ${p1SpeedDecline.toFixed(0)}% while <span class="highlight-p2">${names.player2}</span> slowed ${p2SpeedDecline.toFixed(0)}% — an evenly physical contest.`;
+                }
+            }
+            
             // Key Takeaways
             summary += `<br><br><strong>💡 Key Takeaways:</strong>`;
             summary += `<br>• <strong>For <span class="highlight-p1">${tDomWinner}</span>:</strong> `;
@@ -608,6 +697,9 @@
                 const data = await response.json();
                 analyticsData = data;
                 renderScoreCard(data);
+                
+                // Initialize the fatigue chart after rendering
+                setTimeout(initFatigueChart, 100);
                 
                 // Apply any saved player names from localStorage
                 // This updates all name displays and regenerates the match summary
@@ -673,6 +765,36 @@
             const frontCourtAdvantagePct = frontCourtComparison.front_court_advantage_pct ?? 0;
             const frontCourtWinner = frontCourtComparison.front_court_winner ?? analysis.front_court?.analysis?.winner ?? 'N/A';
             const frontCourtAnalysis = analysis.front_court || {};
+            
+            // Fatigue data - tracks speed decline over time
+            const p1Fatigue = p1.fatigue_score ?? 0;
+            const p2Fatigue = p2.fatigue_score ?? 0;
+            const p1SpeedDecline = p1.speed_decline_pct ?? 0;
+            const p2SpeedDecline = p2.speed_decline_pct ?? 0;
+            const p1BurstDecline = p1.burst_decline_pct ?? 0;
+            const p2BurstDecline = p2.burst_decline_pct ?? 0;
+            const p1EarlySpeed = p1.early_speed ?? 0;
+            const p1LateSpeed = p1.late_speed ?? 0;
+            const p2EarlySpeed = p2.early_speed ?? 0;
+            const p2LateSpeed = p2.late_speed ?? 0;
+            const fatigueWinner = analysis.fatigue?.winner ?? (p1Fatigue < p2Fatigue ? 'Player 1' : p2Fatigue < p1Fatigue ? 'Player 2' : 'Even');
+            const fatigueAnalysis = analysis.fatigue || {};
+            
+            // Get quarter-by-quarter speed data for graph (from full fatigue object if available)
+            const fatigueData = analytics.fatigue || {};
+            const p1Quarters = fatigueData.player1?.speeds_by_quarter || { q1: p1EarlySpeed, q2: 0, q3: 0, q4: p1LateSpeed };
+            const p2Quarters = fatigueData.player2?.speeds_by_quarter || { q1: p2EarlySpeed, q2: 0, q3: 0, q4: p2LateSpeed };
+            // If we only have early/late, interpolate middle quarters
+            if (!fatigueData.player1?.speeds_by_quarter && p1EarlySpeed > 0) {
+                const p1Diff = (p1EarlySpeed - p1LateSpeed) / 3;
+                p1Quarters.q2 = p1EarlySpeed - p1Diff;
+                p1Quarters.q3 = p1EarlySpeed - p1Diff * 2;
+            }
+            if (!fatigueData.player2?.speeds_by_quarter && p2EarlySpeed > 0) {
+                const p2Diff = (p2EarlySpeed - p2LateSpeed) / 3;
+                p2Quarters.q2 = p2EarlySpeed - p2Diff;
+                p2Quarters.q3 = p2EarlySpeed - p2Diff * 2;
+            }
             
             // Calculate percentages for bars
             const tDomTotal = p1TDom + p2TDom;
@@ -1070,6 +1192,59 @@
                             </div>
                             <div class="analysis-text">${frontCourtAnalysis.analysis?.summary || frontCourtAnalysis.summary || 'Front court analysis not available.'}</div>
                         </div>
+
+                        <!-- Fatigue Score -->
+                        <div class="metric-card full-width">
+                            <div class="metric-header">
+                                <span class="metric-name">🔋 ${labels.fatigue}</span>
+                                <span class="metric-winner ${fatigueWinner === 'Player 1' ? 'p1' : fatigueWinner === 'Player 2' ? 'p2' : 'tie'}" id="fatigueWinner">${fatigueWinner === 'Player 1' ? playerNames.player1 : fatigueWinner === 'Player 2' ? playerNames.player2 : fatigueWinner}</span>
+                            </div>
+                            <p class="metric-desc">${labels.fatigue_desc}</p>
+                            
+                            <!-- Speed Over Time Chart -->
+                            ${(p1EarlySpeed > 0 || p2EarlySpeed > 0) ? `
+                            <div class="fatigue-chart-wrapper"
+                                 data-p1-speeds="${p1Quarters.q1},${p1Quarters.q2},${p1Quarters.q3},${p1Quarters.q4}"
+                                 data-p2-speeds="${p2Quarters.q1},${p2Quarters.q2},${p2Quarters.q3},${p2Quarters.q4}"
+                                 data-p1-name="${playerNames.player1}"
+                                 data-p2-name="${playerNames.player2}">
+                                <div class="fatigue-chart-title">Movement Speed Throughout Match</div>
+                                <div class="fatigue-chart-container">
+                                    <canvas id="fatigueChart"></canvas>
+                                </div>
+                                <div class="fatigue-chart-legend">
+                                    <div class="fatigue-legend-item">
+                                        <div class="fatigue-legend-dot p1"></div>
+                                        <span class="player1-name">${playerNames.player1}</span>
+                                    </div>
+                                    <div class="fatigue-legend-item">
+                                        <div class="fatigue-legend-dot p2"></div>
+                                        <span class="player2-name">${playerNames.player2}</span>
+                                    </div>
+                                </div>
+                                <div class="fatigue-insight" id="fatigueInsight">
+                                    ${(() => {
+                                        const p1Change = p1Quarters.q4 - p1Quarters.q1;
+                                        const p2Change = p2Quarters.q4 - p2Quarters.q1;
+                                        
+                                        if (Math.abs(p1Change) < 0.5 && Math.abs(p2Change) < 0.5) {
+                                            return '<strong>Both players maintained consistent speed</strong> throughout the match — no significant fatigue detected.';
+                                        } else if (p1Change < -1 && p2Change < -1) {
+                                            const worse = p1Change < p2Change ? playerNames.player1 : playerNames.player2;
+                                            return '<strong>Both players showed signs of fatigue</strong>, with ' + worse + ' slowing down more noticeably in the final quarter.';
+                                        } else if (p1Change > 0.5 || p2Change > 0.5) {
+                                            const faster = p1Change > p2Change ? playerNames.player1 : playerNames.player2;
+                                            return '<strong>' + faster + ' actually got faster</strong> as the match progressed — strong conditioning or perhaps a slower start warming up.';
+                                        } else {
+                                            const p1Trend = p1Change > 0.5 ? 'sped up' : p1Change < -0.5 ? 'slowed down' : 'maintained pace';
+                                            const p2Trend = p2Change > 0.5 ? 'sped up' : p2Change < -0.5 ? 'slowed down' : 'maintained pace';
+                                            return '<strong>' + playerNames.player1 + '</strong> ' + p1Trend + ' while <strong>' + playerNames.player2 + '</strong> ' + p2Trend + ' as the match progressed.';
+                                        }
+                                    })()}
+                                </div>
+                            </div>
+                            ` : '<div class="analysis-text">Speed data not available for this match.</div>'}
+                        </div>
                             </div>
                         </div>
 
@@ -1085,6 +1260,7 @@
                         <span class="suggestion-chip" onclick="askQuestion('Who has tighter rails?')">Tight rails?</span>
                             <span class="suggestion-chip" onclick="askQuestion('Who is more aggressive?')">More aggressive?</span>
                             <span class="suggestion-chip" onclick="askQuestion('Who controls the front court?')">Front court?</span>
+                            <span class="suggestion-chip" onclick="askQuestion('Who is more fatigued?')">Fatigue?</span>
                         </div>
                         <div class="chat-messages" id="chatMessages">
                             <div class="chat-message assistant">
@@ -1267,6 +1443,107 @@
         function askQuestion(question) {
             document.getElementById('chatInput').value = question;
             sendChat();
+        }
+        
+        // Initialize fatigue chart after DOM is ready
+        function initFatigueChart() {
+            const wrapper = document.querySelector('.fatigue-chart-wrapper');
+            if (!wrapper) return;
+            
+            const canvas = document.getElementById('fatigueChart');
+            if (!canvas) return;
+            
+            const p1Speeds = wrapper.dataset.p1Speeds.split(',').map(Number);
+            const p2Speeds = wrapper.dataset.p2Speeds.split(',').map(Number);
+            const p1Name = wrapper.dataset.p1Name || 'Player 1';
+            const p2Name = wrapper.dataset.p2Name || 'Player 2';
+            
+            // Calculate nice Y-axis bounds
+            const allData = [...p1Speeds, ...p2Speeds].filter(v => v > 0);
+            if (allData.length === 0) return;
+            
+            const dataMin = Math.min(...allData);
+            const dataMax = Math.max(...allData);
+            const padding = (dataMax - dataMin) * 0.3 || 1;
+            const yMin = Math.max(0, Math.floor(dataMin - padding));
+            const yMax = Math.ceil(dataMax + padding);
+            
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Start', 'Quarter 2', 'Quarter 3', 'End'],
+                    datasets: [{
+                        label: p1Name,
+                        data: p1Speeds,
+                        borderColor: '#00d4aa',
+                        backgroundColor: 'rgba(0, 212, 170, 0.15)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 9,
+                        pointBackgroundColor: '#00d4aa',
+                        pointBorderColor: '#0a0a0f',
+                        pointBorderWidth: 2
+                    }, {
+                        label: p2Name,
+                        data: p2Speeds,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 9,
+                        pointBackgroundColor: '#6366f1',
+                        pointBorderColor: '#0a0a0f',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(18, 18, 26, 0.95)',
+                            titleColor: '#fff',
+                            bodyColor: '#8b8b9e',
+                            borderColor: '#2a2a3a',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' ft/s';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                            ticks: { color: '#8b8b9e', font: { family: 'Outfit', size: 12, weight: '500' } }
+                        },
+                        y: {
+                            min: yMin,
+                            max: yMax,
+                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                            ticks: { 
+                                color: '#8b8b9e', 
+                                font: { family: 'Outfit', size: 11 },
+                                callback: function(value) { return value + ' ft/s'; }
+                            }
+                        }
+                    }
+                }
+            });
         }
         
         // Initialize

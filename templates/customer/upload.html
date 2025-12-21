@@ -598,8 +598,244 @@
             header h1 { font-size: 2rem; }
             .upload-card { padding: 30px 20px; }
             .upload-zone { padding: 40px 20px; }
+            .demo-metrics { grid-template-columns: 1fr; }
+            .demo-section-title { font-size: 1.5rem; }
+        }
+
+        /* Hero enhancements */
+        .hero-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin: 0 auto 12px;
+        }
+        .hero-tagline {
+            color: var(--accent);
+            font-size: 1rem;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        /* Demo Section - "See It In Action" */
+        .demo-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        .demo-section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), #6366f1, var(--accent));
+            background-size: 200% 100%;
+            animation: shimmer 3s ease infinite;
+        }
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .demo-section-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+        .demo-section-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.15), rgba(99, 102, 241, 0.15));
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            color: var(--accent);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+        .demo-section-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .demo-section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        /* Demo Metrics Grid */
+        .demo-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .demo-metric-card {
+            background: var(--bg-elevated);
+            border-radius: 16px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+        .demo-metric-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+        }
+        .demo-metric-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        .demo-metric-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .demo-metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .demo-metric-value.p1 { color: var(--accent); }
+        .demo-metric-value.p2 { color: #6366f1; }
+        .demo-metric-player {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        .demo-metric-comparison {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+        .demo-metric-stat {
+            text-align: center;
+        }
+        .demo-metric-stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .demo-metric-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* T-Dominance Progress Ring */
+        .demo-t-dominance {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        .demo-progress-ring {
+            position: relative;
+            width: 100px;
+            height: 100px;
+        }
+        .demo-progress-ring svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+        .demo-progress-ring circle {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+        }
+        .demo-progress-ring .bg {
+            stroke: var(--bg-dark);
+        }
+        .demo-progress-ring .progress {
+            stroke: var(--accent);
+            stroke-dasharray: 251.2;
+            stroke-dashoffset: 251.2;
+            transition: stroke-dashoffset 1.5s ease-out;
+        }
+        .demo-progress-ring .progress.p2 {
+            stroke: #6366f1;
+        }
+        .demo-progress-ring .value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* Demo Chart Container */
+        .demo-chart-wrapper {
+            background: linear-gradient(135deg, rgba(18, 18, 26, 0.9) 0%, rgba(26, 26, 37, 0.9) 100%);
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid var(--border);
+        }
+        .demo-chart-title {
+            text-align: center;
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+        .demo-chart-container {
+            height: 200px;
+            position: relative;
+        }
+        .demo-chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+        .demo-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        .demo-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .demo-legend-dot.p1 { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .demo-legend-dot.p2 { background: #6366f1; box-shadow: 0 0 8px #6366f1; }
+        .demo-chart-insight {
+            margin-top: 15px;
+            padding: 12px 16px;
+            background: rgba(255, 71, 87, 0.1);
+            border-left: 3px solid var(--danger);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .demo-chart-insight strong {
+            color: var(--danger);
+        }
+
+        /* Demo CTA */
+        .demo-cta {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 25px;
+            border-top: 1px solid var(--border);
+        }
+        .demo-cta-text {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        .demo-cta-emphasis {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 1.2rem;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="bg-gradient"></div>
@@ -610,9 +846,117 @@
                 <div class="logo-icon"><img src="/static/squash-ball.svg" alt="Squash Ball"></div>
                 <span class="logo-text">Squash.AI</span>
             </div>
-            <h1>Smart Match Analysis</h1>
-            <p>Upload your squash match videos and get instant insights with player tracking, performance metrics, and detailed game analytics.</p>
+            <h1>Your Ghost Coach on the Glass Court</h1>
+            <p class="hero-subtitle">Stop guessing. Start dominating. AI-powered match analysis that tells you exactly how to own the T.</p>
+            <p class="hero-tagline">Every pro has a coach. Now you have an AI one.</p>
         </header>
+
+        <!-- See It In Action - Demo Section -->
+        <div class="demo-section">
+            <div class="demo-section-header">
+                <div class="demo-section-badge">✨ See It In Action</div>
+                <h2 class="demo-section-title">Real insights from a real match</h2>
+                <p class="demo-section-subtitle">Here's what Squash.AI revealed about Mohamed vs Ali's latest battle</p>
+            </div>
+
+            <!-- Demo Metrics Row -->
+            <div class="demo-metrics">
+                <!-- T-Dominance -->
+                <div class="demo-metric-card">
+                    <div class="demo-metric-icon">🎯</div>
+                    <div class="demo-metric-label">T-Dominance</div>
+                    <div class="demo-t-dominance">
+                        <div class="demo-progress-ring" data-value="62">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="bg" cx="50" cy="50" r="40"/>
+                                <circle class="progress p1" cx="50" cy="50" r="40"/>
+                            </svg>
+                            <span class="value p1">62%</span>
+                        </div>
+                        <div class="demo-progress-ring" data-value="38">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="bg" cx="50" cy="50" r="40"/>
+                                <circle class="progress p2" cx="50" cy="50" r="40"/>
+                            </svg>
+                            <span class="value p2">38%</span>
+                        </div>
+                    </div>
+                    <div class="demo-metric-comparison">
+                        <div class="demo-metric-stat">
+                            <div class="demo-metric-stat-value" style="color: var(--accent);">Mohamed</div>
+                            <div class="demo-metric-stat-label">owns the T</div>
+                        </div>
+                        <div class="demo-metric-stat">
+                            <div class="demo-metric-stat-value" style="color: #6366f1;">Ali</div>
+                            <div class="demo-metric-stat-label">chasing</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scramble Score -->
+                <div class="demo-metric-card">
+                    <div class="demo-metric-icon">🏃</div>
+                    <div class="demo-metric-label">Scramble Score</div>
+                    <div class="demo-metric-comparison" style="margin-top: 0;">
+                        <div class="demo-metric-stat">
+                            <div class="demo-metric-stat-value" style="color: var(--accent); font-size: 1.8rem;">12.4 ft</div>
+                            <div class="demo-metric-stat-label">Mohamed</div>
+                        </div>
+                        <div class="demo-metric-stat">
+                            <div class="demo-metric-stat-value" style="color: #6366f1; font-size: 1.8rem;">18.7 ft</div>
+                            <div class="demo-metric-stat-label">Ali</div>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 12px;">Avg distance from T — lower is better</p>
+                    <p style="color: var(--danger); font-size: 0.75rem; margin-top: 8px;">⚠️ Ali is being pushed around the court</p>
+                </div>
+
+                <!-- Attack Score -->
+                <div class="demo-metric-card">
+                    <div class="demo-metric-icon">⚡</div>
+                    <div class="demo-metric-label">Attack Score</div>
+                    <div class="demo-metric-comparison" style="margin-top: 0;">
+                        <div class="demo-metric-stat">
+                            <div class="demo-metric-stat-value" style="color: var(--accent); font-size: 2.2rem;">24</div>
+                            <div class="demo-metric-stat-label">Mohamed</div>
+                        </div>
+                        <div class="demo-metric-stat">
+                            <div class="demo-metric-stat-value" style="color: #6366f1; font-size: 2.2rem;">16</div>
+                            <div class="demo-metric-stat-label">Ali</div>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 12px;">Aggressive shots taken</p>
+                    <p style="color: var(--accent); font-size: 0.75rem; margin-top: 8px;">🔥 Mohamed is dictating play</p>
+                </div>
+            </div>
+
+            <!-- Fatigue Chart -->
+            <div class="demo-chart-wrapper">
+                <div class="demo-chart-title">🔋 Fatigue Analysis — Speed Throughout Match</div>
+                <div class="demo-chart-container">
+                    <canvas id="demoFatigueChart"></canvas>
+                </div>
+                <div class="demo-chart-legend">
+                    <div class="demo-legend-item">
+                        <div class="demo-legend-dot p1"></div>
+                        <span>Mohamed</span>
+                    </div>
+                    <div class="demo-legend-item">
+                        <div class="demo-legend-dot p2"></div>
+                        <span>Ali</span>
+                    </div>
+                </div>
+                <div class="demo-chart-insight">
+                    <strong>Coaching Insight:</strong> Ali's movement speed dropped 29% by Q4 — his conditioning let him down in crunch time. Mohamed stayed consistent, winning the final games.
+                </div>
+            </div>
+
+            <!-- CTA -->
+            <div class="demo-cta">
+                <p class="demo-cta-text">Ready to uncover your game's secrets?</p>
+                <p class="demo-cta-emphasis">Upload your match. Unleash your potential. ⬇️</p>
+            </div>
+        </div>
 
         <div class="upload-card">
             <div class="upload-zone" id="uploadZone">
@@ -684,19 +1028,24 @@
 
         <div class="features">
             <div class="feature-card">
-                <div class="feature-icon"><svg viewBox="0 0 493.415 493.415" style="width: 32px; height: 32px;"><circle cx="246.708" cy="246.703" r="246.703" fill="#1a1a25"/><circle cx="291.68" cy="145.369" r="22.491" fill="#ffd700"/><circle cx="269.199" cy="236.681" r="22.491" fill="#ffd700"/></svg></div>
-                <h3>Multi-Game Analysis</h3>
-                <p>Upload multiple game videos and get a unified match analysis with combined metrics.</p>
+                <div class="feature-icon">👻</div>
+                <h3>Ghost Movement Tracking</h3>
+                <p>See exactly where you're losing position. Our AI tracks every step, revealing the court coverage patterns that win (or lose) matches.</p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3>Combined Scorecard</h3>
-                <p>See aggregated stats across all games - T-dominance trends, total distance, attack patterns.</p>
+                <div class="feature-icon">🧱</div>
+                <h3>Rail Tightness Analysis</h3>
+                <p>Are your drives really hugging the wall? We measure every rail shot in inches. No more guessing if your length is good enough.</p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">🎥</div>
-                <h3>Individual + Match View</h3>
-                <p>View each game's details or the combined match summary with game-by-game breakdown.</p>
+                <div class="feature-icon">🔋</div>
+                <h3>Fatigue Detection</h3>
+                <p>Know exactly when your opponent is gassing out. Track speed decline quarter-by-quarter and exploit their tired legs.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🧠</div>
+                <h3>AI Match Summary</h3>
+                <p>Get coaching insights, not just numbers. Our AI explains what the data means and gives you actionable tips to improve.</p>
             </div>
         </div>
 
@@ -1168,6 +1517,121 @@
         
         // Load recent videos on page load
         loadRecentVideos();
+        
+        // ============================================
+        // Demo Section - Sample Chart & Animations
+        // ============================================
+        
+        // Initialize demo fatigue chart
+        function initDemoFatigueChart() {
+            const canvas = document.getElementById('demoFatigueChart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Sample data: Mohamed stays consistent, Ali fatigues
+            const mohamedSpeeds = [10.2, 10.5, 9.8, 9.9];
+            const aliSpeeds = [10.1, 9.2, 8.1, 7.2];
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Start', 'Quarter 2', 'Quarter 3', 'End'],
+                    datasets: [{
+                        label: 'Mohamed',
+                        data: mohamedSpeeds,
+                        borderColor: '#00d4aa',
+                        backgroundColor: 'rgba(0, 212, 170, 0.15)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 9,
+                        pointBackgroundColor: '#00d4aa',
+                        pointBorderColor: '#0a0a0f',
+                        pointBorderWidth: 2
+                    }, {
+                        label: 'Ali',
+                        data: aliSpeeds,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 9,
+                        pointBackgroundColor: '#6366f1',
+                        pointBorderColor: '#0a0a0f',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(18, 18, 26, 0.95)',
+                            titleColor: '#fff',
+                            bodyColor: '#8b8b9e',
+                            borderColor: '#2a2a3a',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' ft/s';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                            ticks: { color: '#8b8b9e', font: { family: 'Outfit', size: 12, weight: '500' } }
+                        },
+                        y: {
+                            min: 6,
+                            max: 12,
+                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                            ticks: { 
+                                color: '#8b8b9e', 
+                                font: { family: 'Outfit', size: 11 },
+                                callback: function(value) { return value + ' ft/s'; }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Animate T-Dominance progress rings
+        function animateProgressRings() {
+            const rings = document.querySelectorAll('.demo-progress-ring');
+            
+            rings.forEach(ring => {
+                const value = parseInt(ring.dataset.value);
+                const circle = ring.querySelector('.progress');
+                
+                // Circle circumference = 2 * PI * r = 2 * 3.14159 * 40 = 251.2
+                const circumference = 251.2;
+                const offset = circumference - (value / 100) * circumference;
+                
+                // Animate after a short delay
+                setTimeout(() => {
+                    circle.style.strokeDashoffset = offset;
+                }, 500);
+            });
+        }
+        
+        // Initialize demo section
+        initDemoFatigueChart();
+        animateProgressRings();
     </script>
 </body>
 </html>

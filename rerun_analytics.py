@@ -87,3 +87,4 @@ if __name__ == "__main__":
     success = rerun_analytics(job_id)
     sys.exit(0 if success else 1)
 
+

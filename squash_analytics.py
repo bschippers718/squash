@@ -816,6 +816,198 @@ def analyze_front_court_play(frames_data, video_width, video_height, fps):
 
 
 # =============================================================================
+# FATIGUE ANALYSIS
+# =============================================================================
+
+def analyze_fatigue(frames_data, video_width, video_height, fps):
+    """
+    Analyze player fatigue by tracking speed decline over time.
+    
+    Divides the match into quarters and compares:
+    - Average movement speed (early vs late)
+    - Burst speed (max speed in each quarter)
+    - Speed decline percentage
+    - Fatigue score (0-100, higher = more fatigued)
+    
+    This metric relies on player detection (91%+ reliable) rather than ball detection.
+    """
+    if len(frames_data) < 100:
+        return {
+            'player1': {'fatigue_score': 0, 'speed_decline_pct': 0, 'early_speed': 0, 'late_speed': 0,
+                       'early_burst': 0, 'late_burst': 0, 'burst_decline_pct': 0},
+            'player2': {'fatigue_score': 0, 'speed_decline_pct': 0, 'early_speed': 0, 'late_speed': 0,
+                       'early_burst': 0, 'late_burst': 0, 'burst_decline_pct': 0},
+            'analysis': {'winner': 'N/A', 'summary': 'Insufficient data for fatigue analysis.'}
+        }
+    
+    # Divide match into quarters
+    total_frames = len(frames_data)
+    quarter_size = total_frames // 4
+    
+    # Track speed per quarter for each player
+    # Speed = distance moved per frame, converted to pixels/second
+    p1_speeds = {1: [], 2: [], 3: [], 4: []}
+    p2_speeds = {1: [], 2: [], 3: [], 4: []}
+    
+    prev_p1_pos = None
+    prev_p2_pos = None
+    
+    # Minimum movement threshold to filter out stationary frames (pixels)
+    min_movement = 5
+    # Maximum realistic movement per frame (filters out tracking errors)
+    max_movement_per_frame = video_width * 0.15  # 15% of video width
+    
+    for frame_idx, frame_data in enumerate(frames_data):
+        quarter = min(4, (frame_idx // quarter_size) + 1)
+        players = frame_data.get('players', [])
+        
+        if len(players) < 2:
+            prev_p1_pos = None
+            prev_p2_pos = None
+            continue
+        
+        # Sort by player ID for consistency (Player 1 = id 0, Player 2 = id 1)
+        players.sort(key=lambda p: p.get('id', 0))
+        
+        p1_center = players[0].get('center')
+        p2_center = players[1].get('center')
+        
+        if prev_p1_pos and p1_center:
+            # Calculate distance moved (pixels per frame)
+            dist = math.sqrt((p1_center[0] - prev_p1_pos[0])**2 + 
+                            (p1_center[1] - prev_p1_pos[1])**2)
+            # Convert to speed (pixels/second)
+            speed = dist * fps
+            # Filter: only count actual movement, exclude tracking errors
+            if dist > min_movement and dist < max_movement_per_frame:
+                p1_speeds[quarter].append(speed)
+        
+        if prev_p2_pos and p2_center:
+            dist = math.sqrt((p2_center[0] - prev_p2_pos[0])**2 + 
+                            (p2_center[1] - prev_p2_pos[1])**2)
+            speed = dist * fps
+            if dist > min_movement and dist < max_movement_per_frame:
+                p2_speeds[quarter].append(speed)
+        
+        prev_p1_pos = p1_center
+        prev_p2_pos = p2_center
+    
+    # Calculate average and burst (max) speed per quarter
+    def avg(lst): 
+        return sum(lst) / len(lst) if lst else 0
+    
+    def burst(lst, percentile=95):
+        """Get burst speed (95th percentile to avoid outliers)"""
+        if not lst:
+            return 0
+        sorted_speeds = sorted(lst)
+        idx = int(len(sorted_speeds) * percentile / 100)
+        return sorted_speeds[min(idx, len(sorted_speeds) - 1)]
+    
+    # Early = Q1, Late = Q4
+    p1_q1_speed = avg(p1_speeds[1])
+    p1_q4_speed = avg(p1_speeds[4])
+    p2_q1_speed = avg(p2_speeds[1])
+    p2_q4_speed = avg(p2_speeds[4])
+    
+    p1_q1_burst = burst(p1_speeds[1])
+    p1_q4_burst = burst(p1_speeds[4])
+    p2_q1_burst = burst(p2_speeds[1])
+    p2_q4_burst = burst(p2_speeds[4])
+    
+    # Calculate speed decline percentage (positive = slowing down)
+    def calc_decline(early, late):
+        if early <= 0:
+            return 0
+        return ((early - late) / early) * 100
+    
+    p1_speed_decline = calc_decline(p1_q1_speed, p1_q4_speed)
+    p2_speed_decline = calc_decline(p2_q1_speed, p2_q4_speed)
+    
+    p1_burst_decline = calc_decline(p1_q1_burst, p1_q4_burst)
+    p2_burst_decline = calc_decline(p2_q1_burst, p2_q4_burst)
+    
+    # Fatigue score: weighted combination of speed and burst decline
+    # Capped at 0-100, higher = more fatigued
+    # Weight burst decline more heavily as it shows explosive capacity loss
+    p1_fatigue = max(0, min(100, (p1_speed_decline * 0.4 + p1_burst_decline * 0.6)))
+    p2_fatigue = max(0, min(100, (p2_speed_decline * 0.4 + p2_burst_decline * 0.6)))
+    
+    # Convert pixel speeds to approximate court coverage (feet/second)
+    # Squash court is ~21 feet wide, video_width pixels
+    COURT_WIDTH_FT = 21.0
+    pixels_per_foot = video_width / COURT_WIDTH_FT
+    
+    def to_ft_per_sec(pixel_speed):
+        return pixel_speed / pixels_per_foot if pixels_per_foot > 0 else 0
+    
+    # Determine winner (lower fatigue = better conditioning)
+    if p1_fatigue < p2_fatigue - 5:  # 5% threshold for meaningful difference
+        winner = 'Player 1'
+    elif p2_fatigue < p1_fatigue - 5:
+        winner = 'Player 2'
+    else:
+        winner = 'Even'
+    
+    # Generate analysis text
+    if p1_q1_speed == 0 and p2_q1_speed == 0:
+        analysis_text = "Unable to analyze fatigue - insufficient movement data."
+    elif winner == 'Even':
+        analysis_text = f"Both players maintained similar conditioning throughout the match. Player 1 slowed {p1_speed_decline:.0f}%, Player 2 slowed {p2_speed_decline:.0f}%."
+    else:
+        better_player = winner
+        worse_player = 'Player 2' if winner == 'Player 1' else 'Player 1'
+        better_decline = p1_speed_decline if winner == 'Player 1' else p2_speed_decline
+        worse_decline = p2_speed_decline if winner == 'Player 1' else p1_speed_decline
+        better_burst_decline = p1_burst_decline if winner == 'Player 1' else p2_burst_decline
+        worse_burst_decline = p2_burst_decline if winner == 'Player 1' else p1_burst_decline
+        
+        analysis_text = f"{better_player} showed better conditioning, slowing only {better_decline:.0f}% (burst: {better_burst_decline:.0f}%) compared to {worse_player}'s {worse_decline:.0f}% decline (burst: {worse_burst_decline:.0f}%). "
+        
+        if worse_decline > 20:
+            analysis_text += f"{worse_player} may be experiencing significant fatigue in the later stages."
+        elif worse_decline > 10:
+            analysis_text += f"{worse_player} is showing signs of fatigue as the match progresses."
+    
+    return {
+        'player1': {
+            'fatigue_score': round(p1_fatigue, 0),
+            'speed_decline_pct': round(p1_speed_decline, 1),
+            'early_speed': round(to_ft_per_sec(p1_q1_speed), 1),
+            'late_speed': round(to_ft_per_sec(p1_q4_speed), 1),
+            'early_burst': round(to_ft_per_sec(p1_q1_burst), 1),
+            'late_burst': round(to_ft_per_sec(p1_q4_burst), 1),
+            'burst_decline_pct': round(p1_burst_decline, 1),
+            'speeds_by_quarter': {
+                'q1': round(to_ft_per_sec(p1_q1_speed), 1),
+                'q2': round(to_ft_per_sec(avg(p1_speeds[2])), 1),
+                'q3': round(to_ft_per_sec(avg(p1_speeds[3])), 1),
+                'q4': round(to_ft_per_sec(p1_q4_speed), 1)
+            }
+        },
+        'player2': {
+            'fatigue_score': round(p2_fatigue, 0),
+            'speed_decline_pct': round(p2_speed_decline, 1),
+            'early_speed': round(to_ft_per_sec(p2_q1_speed), 1),
+            'late_speed': round(to_ft_per_sec(p2_q4_speed), 1),
+            'early_burst': round(to_ft_per_sec(p2_q1_burst), 1),
+            'late_burst': round(to_ft_per_sec(p2_q4_burst), 1),
+            'burst_decline_pct': round(p2_burst_decline, 1),
+            'speeds_by_quarter': {
+                'q1': round(to_ft_per_sec(p2_q1_speed), 1),
+                'q2': round(to_ft_per_sec(avg(p2_speeds[2])), 1),
+                'q3': round(to_ft_per_sec(avg(p2_speeds[3])), 1),
+                'q4': round(to_ft_per_sec(p2_q4_speed), 1)
+            }
+        },
+        'analysis': {
+            'winner': winner,
+            'summary': analysis_text
+        }
+    }
+
+
+# =============================================================================
 # PERFORMANCE DECAY ANALYSIS
 # =============================================================================
 
@@ -1332,6 +1524,9 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
     # Analyze performance decay (first half vs second half)
     performance_decay = analyze_performance_decay(frames_data, video_width, video_height, fps)
     
+    # Analyze fatigue (speed decline over time)
+    fatigue = analyze_fatigue(frames_data, video_width, video_height, fps)
+    
     return {
         'sport': sport,
         'camera_angle': camera_angle,
@@ -1363,7 +1558,12 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'tight_rail_count': tight_rails['player1']['tight_rail_count'],
             'front_court_pct': front_court['player1']['front_court_pct'],
             'dropshots': front_court['player1']['dropshots'],
-            'retrieves': front_court['player1']['retrieves']
+            'retrieves': front_court['player1']['retrieves'],
+            'fatigue_score': fatigue['player1']['fatigue_score'],
+            'speed_decline_pct': fatigue['player1']['speed_decline_pct'],
+            'early_speed': fatigue['player1']['early_speed'],
+            'late_speed': fatigue['player1']['late_speed'],
+            'burst_decline_pct': fatigue['player1']['burst_decline_pct']
         },
         'player2': {
             'name': 'Player 2 (Right)',
@@ -1378,7 +1578,12 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'tight_rail_count': tight_rails['player2']['tight_rail_count'],
             'front_court_pct': front_court['player2']['front_court_pct'],
             'dropshots': front_court['player2']['dropshots'],
-            'retrieves': front_court['player2']['retrieves']
+            'retrieves': front_court['player2']['retrieves'],
+            'fatigue_score': fatigue['player2']['fatigue_score'],
+            'speed_decline_pct': fatigue['player2']['speed_decline_pct'],
+            'early_speed': fatigue['player2']['early_speed'],
+            'late_speed': fatigue['player2']['late_speed'],
+            'burst_decline_pct': fatigue['player2']['burst_decline_pct']
         },
         'analysis': {
             'scramble': {
@@ -1400,7 +1605,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
                 'more_aggressive': 'Player 1' if p1_attacks > p2_attacks else 'Player 2'
             },
             'tight_rails': tight_rails['analysis'],
-            'front_court': front_court['analysis']
+            'front_court': front_court['analysis'],
+            'fatigue': fatigue['analysis']
         },
         'insights': generate_match_insights(
             p1_avg_dist, p2_avg_dist,
@@ -1411,7 +1617,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
         'shot_sequences': shot_sequences,
         'zone_analysis': zone_analysis,
         'front_court': front_court,
-        'performance_decay': performance_decay
+        'performance_decay': performance_decay,
+        'fatigue': fatigue
     }
 
 def generate_match_insights(p1_scramble, p2_scramble, p1_running, p2_running, 
@@ -1929,6 +2136,20 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     p1_total_retrieves = 0
     p2_total_retrieves = 0
     
+    # Fatigue aggregates (weighted by duration)
+    p1_total_fatigue = 0
+    p2_total_fatigue = 0
+    p1_total_speed_decline = 0
+    p2_total_speed_decline = 0
+    p1_total_early_speed = 0
+    p2_total_early_speed = 0
+    p1_total_late_speed = 0
+    p2_total_late_speed = 0
+    p1_total_burst_decline = 0
+    p2_total_burst_decline = 0
+    p1_fatigue_games = 0
+    p2_fatigue_games = 0
+    
     # Performance decay - compare first half of games to second half
     first_half_games = []
     second_half_games = []
@@ -1999,6 +2220,31 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         p2_total_dropshots += p2.get('dropshots', 0)
         p1_total_retrieves += p1.get('retrieves', 0)
         p2_total_retrieves += p2.get('retrieves', 0)
+        
+        # Fatigue (weighted by duration, only count valid data)
+        p1_fatigue = p1.get('fatigue_score', 0)
+        p2_fatigue = p2.get('fatigue_score', 0)
+        p1_early = p1.get('early_speed', 0)
+        p2_early = p2.get('early_speed', 0)
+        p1_late = p1.get('late_speed', 0)
+        p2_late = p2.get('late_speed', 0)
+        p1_burst = p1.get('burst_decline_pct', 0)
+        p2_burst = p2.get('burst_decline_pct', 0)
+        
+        if p1_fatigue > 0 or p1.get('speed_decline_pct', 0) != 0 or p1_early > 0:
+            p1_total_fatigue += p1_fatigue * game_duration
+            p1_total_speed_decline += p1.get('speed_decline_pct', 0) * game_duration
+            p1_total_early_speed += p1_early * game_duration
+            p1_total_late_speed += p1_late * game_duration
+            p1_total_burst_decline += p1_burst * game_duration
+            p1_fatigue_games += game_duration
+        if p2_fatigue > 0 or p2.get('speed_decline_pct', 0) != 0 or p2_early > 0:
+            p2_total_fatigue += p2_fatigue * game_duration
+            p2_total_speed_decline += p2.get('speed_decline_pct', 0) * game_duration
+            p2_total_early_speed += p2_early * game_duration
+            p2_total_late_speed += p2_late * game_duration
+            p2_total_burst_decline += p2_burst * game_duration
+            p2_fatigue_games += game_duration
         
         # Zone analysis
         p1_zone = zone.get('player1', {}).get('aggregate', {})
@@ -2285,6 +2531,32 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     if not zone_analysis_text:
         zone_analysis_text.append("Both players used the court similarly across the match.")
     
+    # Calculate fatigue averages
+    p1_avg_fatigue = round(p1_total_fatigue / p1_fatigue_games, 0) if p1_fatigue_games > 0 else 0
+    p2_avg_fatigue = round(p2_total_fatigue / p2_fatigue_games, 0) if p2_fatigue_games > 0 else 0
+    p1_avg_speed_decline = round(p1_total_speed_decline / p1_fatigue_games, 1) if p1_fatigue_games > 0 else 0
+    p2_avg_speed_decline = round(p2_total_speed_decline / p2_fatigue_games, 1) if p2_fatigue_games > 0 else 0
+    p1_avg_early_speed = round(p1_total_early_speed / p1_fatigue_games, 1) if p1_fatigue_games > 0 else 0
+    p2_avg_early_speed = round(p2_total_early_speed / p2_fatigue_games, 1) if p2_fatigue_games > 0 else 0
+    p1_avg_late_speed = round(p1_total_late_speed / p1_fatigue_games, 1) if p1_fatigue_games > 0 else 0
+    p2_avg_late_speed = round(p2_total_late_speed / p2_fatigue_games, 1) if p2_fatigue_games > 0 else 0
+    p1_avg_burst_decline = round(p1_total_burst_decline / p1_fatigue_games, 1) if p1_fatigue_games > 0 else 0
+    p2_avg_burst_decline = round(p2_total_burst_decline / p2_fatigue_games, 1) if p2_fatigue_games > 0 else 0
+    
+    # Fatigue analysis
+    if p1_avg_fatigue == 0 and p2_avg_fatigue == 0:
+        fatigue_winner = 'N/A'
+        fatigue_summary = 'Insufficient data for fatigue analysis.'
+    elif p1_avg_fatigue < p2_avg_fatigue - 5:
+        fatigue_winner = 'Player 1'
+        fatigue_summary = f"Player 1 showed better conditioning (fatigue score: {p1_avg_fatigue:.0f}) compared to Player 2 ({p2_avg_fatigue:.0f}). Player 1 slowed {p1_avg_speed_decline:.0f}% vs Player 2's {p2_avg_speed_decline:.0f}%."
+    elif p2_avg_fatigue < p1_avg_fatigue - 5:
+        fatigue_winner = 'Player 2'
+        fatigue_summary = f"Player 2 showed better conditioning (fatigue score: {p2_avg_fatigue:.0f}) compared to Player 1 ({p1_avg_fatigue:.0f}). Player 2 slowed {p2_avg_speed_decline:.0f}% vs Player 1's {p1_avg_speed_decline:.0f}%."
+    else:
+        fatigue_winner = 'Even'
+        fatigue_summary = f"Both players maintained similar conditioning. Player 1 fatigue: {p1_avg_fatigue:.0f} ({p1_avg_speed_decline:.0f}% decline), Player 2: {p2_avg_fatigue:.0f} ({p2_avg_speed_decline:.0f}% decline)."
+    
     return {
         'match_type': 'combined',
         'num_games': num_games,
@@ -2317,7 +2589,12 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             't_dominance_trend': round(p1_t_dom_change, 1),
             'front_court_pct': round(p1_avg_front_pct, 1),
             'dropshots': p1_total_dropshots,
-            'retrieves': p1_total_retrieves
+            'retrieves': p1_total_retrieves,
+            'fatigue_score': p1_avg_fatigue,
+            'speed_decline_pct': p1_avg_speed_decline,
+            'early_speed': p1_avg_early_speed,
+            'late_speed': p1_avg_late_speed,
+            'burst_decline_pct': p1_avg_burst_decline
         },
         'player2': {
             'name': 'Player 2 (Right)',
@@ -2335,7 +2612,12 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             't_dominance_trend': round(p2_t_dom_change, 1),
             'front_court_pct': round(p2_avg_front_pct, 1),
             'dropshots': p2_total_dropshots,
-            'retrieves': p2_total_retrieves
+            'retrieves': p2_total_retrieves,
+            'fatigue_score': p2_avg_fatigue,
+            'speed_decline_pct': p2_avg_speed_decline,
+            'early_speed': p2_avg_early_speed,
+            'late_speed': p2_avg_late_speed,
+            'burst_decline_pct': p2_avg_burst_decline
         },
         'games': games,
         'trends': {
@@ -2378,6 +2660,10 @@ def combine_match_analytics(game_analytics_list, game_names=None):
                           (f"Player 1 controlled the front court more." if p1_avg_front_pct > p2_avg_front_pct + 5 else
                            f"Player 2 controlled the front court more." if p2_avg_front_pct > p1_avg_front_pct + 5 else
                            "Both players had similar front court presence."))
+            },
+            'fatigue': {
+                'winner': fatigue_winner,
+                'summary': fatigue_summary
             }
         }
     }
