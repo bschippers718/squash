@@ -726,18 +726,30 @@ def analyze_court_pressure(frames_data, video_width, video_height, fps):
     
     This is more meaningful than "front court play" because it shows who's
     dictating the rally and who's being pushed around.
+    
+    Also tracks pressure by quarter for visualization.
     """
-    # Track pressure metrics
+    # Track pressure metrics - overall
     p1_ahead_frames = 0  # Frames where P1 is closer to front wall than P2
     p2_ahead_frames = 0  # Frames where P2 is closer to front wall than P1
     p1_back_court_frames = 0  # Frames where P1 is in back 40% of court
     p2_back_court_frames = 0  # Frames where P2 is in back 40% of court
     total_frames = 0
     
+    # Track pressure by quarter for graph
+    total_frame_count = len(frames_data)
+    quarter_size = max(1, total_frame_count // 4)
+    
+    # Per-quarter tracking: {quarter: {'p1_ahead': 0, 'p2_ahead': 0, 'total': 0}}
+    quarters = {1: {'p1_ahead': 0, 'p2_ahead': 0, 'total': 0},
+                2: {'p1_ahead': 0, 'p2_ahead': 0, 'total': 0},
+                3: {'p1_ahead': 0, 'p2_ahead': 0, 'total': 0},
+                4: {'p1_ahead': 0, 'p2_ahead': 0, 'total': 0}}
+    
     back_court_threshold = 0.60  # Back 40% of court (y > 0.60 in normalized coords)
     position_margin = 0.05  # 5% margin to count as "meaningfully ahead"
     
-    for frame_data in frames_data:
+    for frame_idx, frame_data in enumerate(frames_data):
         players = frame_data.get('players', [])
         
         if len(players) < 2:
@@ -759,11 +771,17 @@ def analyze_court_pressure(frames_data, video_width, video_height, fps):
         
         total_frames += 1
         
+        # Determine which quarter this frame is in
+        quarter = min(4, (frame_idx // quarter_size) + 1)
+        quarters[quarter]['total'] += 1
+        
         # Who's in front of whom? (lower Y = more forward)
         if p1_norm_y < p2_norm_y - position_margin:  # P1 is ahead by meaningful margin
             p1_ahead_frames += 1
+            quarters[quarter]['p1_ahead'] += 1
         elif p2_norm_y < p1_norm_y - position_margin:  # P2 is ahead by meaningful margin
             p2_ahead_frames += 1
+            quarters[quarter]['p2_ahead'] += 1
         
         # Track back court time (being pushed back)
         if p1_norm_y > back_court_threshold:
@@ -773,17 +791,36 @@ def analyze_court_pressure(frames_data, video_width, video_height, fps):
     
     if total_frames == 0:
         return {
-            'player1': {'pressure_pct': 0, 'back_court_pct': 0},
-            'player2': {'pressure_pct': 0, 'back_court_pct': 0},
+            'player1': {'pressure_pct': 0, 'back_court_pct': 0, 'pressure_by_quarter': {'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0}},
+            'player2': {'pressure_pct': 0, 'back_court_pct': 0, 'pressure_by_quarter': {'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0}},
             'comparison': {'pressure_winner': 'N/A', 'pressure_advantage_pct': 0, 'winner': 'N/A'},
             'analysis': {'winner': 'N/A', 'summary': 'Insufficient data for court pressure analysis.'}
         }
     
-    # Calculate percentages
+    # Calculate overall percentages
     p1_pressure_pct = round((p1_ahead_frames / total_frames) * 100, 1)
     p2_pressure_pct = round((p2_ahead_frames / total_frames) * 100, 1)
     p1_back_court_pct = round((p1_back_court_frames / total_frames) * 100, 1)
     p2_back_court_pct = round((p2_back_court_frames / total_frames) * 100, 1)
+    
+    # Calculate pressure percentage by quarter
+    def calc_quarter_pct(quarter_data, player_key):
+        if quarter_data['total'] == 0:
+            return 0
+        return round((quarter_data[player_key] / quarter_data['total']) * 100, 1)
+    
+    p1_pressure_by_quarter = {
+        'q1': calc_quarter_pct(quarters[1], 'p1_ahead'),
+        'q2': calc_quarter_pct(quarters[2], 'p1_ahead'),
+        'q3': calc_quarter_pct(quarters[3], 'p1_ahead'),
+        'q4': calc_quarter_pct(quarters[4], 'p1_ahead')
+    }
+    p2_pressure_by_quarter = {
+        'q1': calc_quarter_pct(quarters[1], 'p2_ahead'),
+        'q2': calc_quarter_pct(quarters[2], 'p2_ahead'),
+        'q3': calc_quarter_pct(quarters[3], 'p2_ahead'),
+        'q4': calc_quarter_pct(quarters[4], 'p2_ahead')
+    }
     
     # Determine who's applying more pressure
     pressure_diff = p1_pressure_pct - p2_pressure_pct
@@ -810,11 +847,13 @@ def analyze_court_pressure(frames_data, video_width, video_height, fps):
     return {
         'player1': {
             'pressure_pct': p1_pressure_pct,
-            'back_court_pct': p1_back_court_pct
+            'back_court_pct': p1_back_court_pct,
+            'pressure_by_quarter': p1_pressure_by_quarter
         },
         'player2': {
             'pressure_pct': p2_pressure_pct,
-            'back_court_pct': p2_back_court_pct
+            'back_court_pct': p2_back_court_pct,
+            'pressure_by_quarter': p2_pressure_by_quarter
         },
         'comparison': {
             'pressure_winner': pressure_winner,
@@ -1571,6 +1610,7 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'tight_rail_count': tight_rails['player1']['tight_rail_count'],
             'pressure_pct': court_pressure['player1']['pressure_pct'],
             'back_court_pct': court_pressure['player1']['back_court_pct'],
+            'pressure_by_quarter': court_pressure['player1'].get('pressure_by_quarter', {'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0}),
             'fatigue_score': fatigue['player1']['fatigue_score'],
             'speed_decline_pct': fatigue['player1']['speed_decline_pct'],
             'early_speed': fatigue['player1']['early_speed'],
@@ -1590,6 +1630,7 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'tight_rail_count': tight_rails['player2']['tight_rail_count'],
             'pressure_pct': court_pressure['player2']['pressure_pct'],
             'back_court_pct': court_pressure['player2']['back_court_pct'],
+            'pressure_by_quarter': court_pressure['player2'].get('pressure_by_quarter', {'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0}),
             'fatigue_score': fatigue['player2']['fatigue_score'],
             'speed_decline_pct': fatigue['player2']['speed_decline_pct'],
             'early_speed': fatigue['player2']['early_speed'],

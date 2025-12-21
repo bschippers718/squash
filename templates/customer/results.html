@@ -300,6 +300,57 @@
             color: var(--text-primary);
         }
         
+        /* Pressure Chart - Similar style to Fatigue Chart */
+        .pressure-chart-wrapper {
+            margin: 20px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, rgba(18, 18, 26, 0.9) 0%, rgba(26, 26, 37, 0.9) 100%);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .pressure-chart-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .pressure-chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+        .pressure-chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        .pressure-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pressure-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .pressure-legend-dot.p1 { background: var(--player1); box-shadow: 0 0 8px var(--player1); }
+        .pressure-legend-dot.p2 { background: var(--player2); box-shadow: 0 0 8px var(--player2); }
+        .pressure-insight {
+            margin-top: 15px;
+            padding: 12px 16px;
+            background: rgba(99, 102, 241, 0.08);
+            border-left: 3px solid var(--player2);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .pressure-insight strong {
+            color: var(--text-primary);
+        }
+        
         /* Chat Section */
         .chat-card {
             background: var(--bg-card); border: 1px solid var(--border);
@@ -700,8 +751,11 @@
                 analyticsData = data;
                 renderScoreCard(data);
                 
-                // Initialize the fatigue chart after rendering
-                setTimeout(initFatigueChart, 100);
+                // Initialize charts after rendering
+                setTimeout(() => {
+                    initFatigueChart();
+                    initPressureChart();
+                }, 100);
                 
                 // Apply any saved player names from localStorage
                 // This updates all name displays and regenerates the match summary
@@ -769,6 +823,10 @@
             const pressureAdvantagePct = courtPressureComparison.pressure_advantage_pct ?? 0;
             const pressureWinner = courtPressureComparison.pressure_winner ?? analysis.court_pressure?.analysis?.winner ?? 'N/A';
             const courtPressureAnalysis = analysis.court_pressure || {};
+            
+            // Pressure by quarter for chart
+            const p1PressureQuarters = p1.pressure_by_quarter || { q1: p1PressurePct, q2: p1PressurePct, q3: p1PressurePct, q4: p1PressurePct };
+            const p2PressureQuarters = p2.pressure_by_quarter || { q1: p2PressurePct, q2: p2PressurePct, q3: p2PressurePct, q4: p2PressurePct };
             
             // Fatigue data - tracks speed decline over time
             const p1Fatigue = p1.fatigue_score ?? 0;
@@ -1182,20 +1240,67 @@
                                 <span class="metric-winner ${pressureWinner === 'Player 1' ? 'p1' : pressureWinner === 'Player 2' ? 'p2' : 'tie'}" id="pressureWinner">${pressureWinner === 'Player 1' ? playerNames.player1 : pressureWinner === 'Player 2' ? playerNames.player2 : pressureWinner}</span>
                             </div>
                             <p class="metric-desc">${labels.court_pressure_desc}</p>
+                            
+                            <!-- Court Pressure Chart -->
+                            ${(p1PressurePct > 0 || p2PressurePct > 0) ? `
+                            <div class="pressure-chart-wrapper"
+                                 data-p1-pressure="${p1PressureQuarters.q1},${p1PressureQuarters.q2},${p1PressureQuarters.q3},${p1PressureQuarters.q4}"
+                                 data-p2-pressure="${p2PressureQuarters.q1},${p2PressureQuarters.q2},${p2PressureQuarters.q3},${p2PressureQuarters.q4}"
+                                 data-p1-name="${playerNames.player1}"
+                                 data-p2-name="${playerNames.player2}">
+                                <div class="pressure-chart-title">Who's In Front? Court Position Battle by Quarter</div>
+                                <div class="pressure-chart-container" style="height: 220px;">
+                                    <canvas id="pressureChart"></canvas>
+                                </div>
+                                <div class="pressure-chart-legend">
+                                    <div class="pressure-legend-item">
+                                        <div class="pressure-legend-dot p1"></div>
+                                        ← <span class="player1-name">${playerNames.player1}</span> in front (${p1PressurePct}% overall)
+                                    </div>
+                                    <div class="pressure-legend-item">
+                                        <div class="pressure-legend-dot p2"></div>
+                                        <span class="player2-name">${playerNames.player2}</span> in front (${p2PressurePct}% overall) →
+                                    </div>
+                                </div>
+                                <div class="pressure-insight" id="pressureInsight">
+                                    ${(() => {
+                                        const p1Trend = p1PressureQuarters.q4 - p1PressureQuarters.q1;
+                                        const p2Trend = p2PressureQuarters.q4 - p2PressureQuarters.q1;
+                                        
+                                        if (Math.abs(p1Trend) < 3 && Math.abs(p2Trend) < 3) {
+                                            return '<strong>Court pressure remained consistent</strong> throughout the match — both players maintained their positioning patterns.';
+                                        } else if (p1Trend > 5 && p2Trend < -5) {
+                                            return '<strong>' + playerNames.player1 + ' gained momentum</strong> as the match progressed, increasingly dominating court position and forcing ' + playerNames.player2 + ' back.';
+                                        } else if (p2Trend > 5 && p1Trend < -5) {
+                                            return '<strong>' + playerNames.player2 + ' gained momentum</strong> as the match progressed, increasingly dominating court position and forcing ' + playerNames.player1 + ' back.';
+                                        } else if (p1Trend > 5) {
+                                            return '<strong>' + playerNames.player1 + ' grew more dominant</strong> in the later stages, spending more time in front and applying increasing pressure.';
+                                        } else if (p2Trend > 5) {
+                                            return '<strong>' + playerNames.player2 + ' grew more dominant</strong> in the later stages, spending more time in front and applying increasing pressure.';
+                                        } else if (p1Trend < -5) {
+                                            return '<strong>' + playerNames.player1 + ' lost court control</strong> as the match went on — possibly due to fatigue or opponent adjustment.';
+                                        } else if (p2Trend < -5) {
+                                            return '<strong>' + playerNames.player2 + ' lost court control</strong> as the match went on — possibly due to fatigue or opponent adjustment.';
+                                        } else {
+                                            return 'Court pressure shifted throughout the match, with both players having periods of dominance.';
+                                        }
+                                    })()}
+                                </div>
+                            </div>
+                            ` : `
                             <div class="metric-bars">
                                 <div class="metric-player p1">
                                     <div class="metric-player-label player1-name">${playerNames.player1}</div>
                                     <div class="metric-player-value">${p1PressurePct}%</div>
                                     <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front of opponent</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${p1BackCourtPct}% forced to back court</div>
                                 </div>
                                 <div class="metric-player p2">
                                     <div class="metric-player-label player2-name">${playerNames.player2}</div>
                                     <div class="metric-player-value">${p2PressurePct}%</div>
                                     <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front of opponent</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${p2BackCourtPct}% forced to back court</div>
                                 </div>
                             </div>
+                            `}
                             <div class="analysis-text">${courtPressureAnalysis.analysis?.summary || courtPressureAnalysis.summary || 'Court pressure analysis not available.'}</div>
                         </div>
 
@@ -1545,6 +1650,119 @@
                                 color: '#8b8b9e', 
                                 font: { family: 'Outfit', size: 11 },
                                 callback: function(value) { return value + ' ft/s'; }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initialize pressure chart - Horizontal Diverging Bar Chart
+        function initPressureChart() {
+            const wrapper = document.querySelector('.pressure-chart-wrapper');
+            if (!wrapper) return;
+            
+            const canvas = document.getElementById('pressureChart');
+            if (!canvas) return;
+            
+            const p1Pressure = wrapper.dataset.p1Pressure.split(',').map(Number);
+            const p2Pressure = wrapper.dataset.p2Pressure.split(',').map(Number);
+            const p1Name = wrapper.dataset.p1Name || 'Player 1';
+            const p2Name = wrapper.dataset.p2Name || 'Player 2';
+            
+            // For diverging chart: P1 values are negative (left), P2 values are positive (right)
+            // This creates a tug-of-war effect centered at 0
+            const p1Data = p1Pressure.map(v => -v);  // Negative = left side
+            const p2Data = p2Pressure;  // Positive = right side
+            
+            // Find max value for symmetric axis
+            const maxVal = Math.max(
+                Math.max(...p1Pressure),
+                Math.max(...p2Pressure),
+                10  // Minimum range of 10%
+            );
+            const axisMax = Math.ceil(maxVal / 5) * 5 + 5;  // Round up to nearest 5, add padding
+            
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4'],
+                    datasets: [{
+                        label: p1Name + ' in front',
+                        data: p1Data,
+                        backgroundColor: 'rgba(0, 212, 170, 0.8)',
+                        borderColor: '#00d4aa',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        barPercentage: 0.7
+                    }, {
+                        label: p2Name + ' in front',
+                        data: p2Data,
+                        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                        borderColor: '#6366f1',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        barPercentage: 0.7
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',  // Horizontal bars
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(18, 18, 26, 0.95)',
+                            titleColor: '#fff',
+                            bodyColor: '#8b8b9e',
+                            borderColor: '#2a2a3a',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    const value = Math.abs(context.parsed.x).toFixed(1);
+                                    return context.dataset.label + ': ' + value + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            min: -axisMax,
+                            max: axisMax,
+                            grid: { 
+                                color: function(context) {
+                                    // Highlight the center line (0)
+                                    if (context.tick.value === 0) {
+                                        return 'rgba(255,255,255,0.3)';
+                                    }
+                                    return 'rgba(255,255,255,0.05)';
+                                },
+                                lineWidth: function(context) {
+                                    return context.tick.value === 0 ? 2 : 1;
+                                },
+                                drawBorder: false 
+                            },
+                            ticks: { 
+                                color: '#8b8b9e', 
+                                font: { family: 'Outfit', size: 11 },
+                                callback: function(value) { 
+                                    return Math.abs(value) + '%'; 
+                                }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: '#8b8b9e', 
+                                font: { family: 'Outfit', size: 12, weight: '500' }
                             }
                         }
                     }
