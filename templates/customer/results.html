@@ -421,8 +421,8 @@
                 attack_desc: 'Number of aggressive, high-velocity shots. Higher = more aggressive play, taking initiative. Lower = more defensive, retrieving shots. The player with more attacks is typically shooting more and taking more risk.',
                 rail: 'Tight Rails',
                 rail_desc: 'How close shots are to the side wall — tighter rails are harder to retrieve.',
-                front_court: 'Front Court Play',
-                front_court_desc: 'Who\'s spending more time in the attacking front court zone. Higher percentage indicates more aggressive positioning or successful short game.',
+                court_pressure: 'Court Pressure',
+                court_pressure_desc: 'Who\'s forcing their opponent into the back court? The player in front is applying pressure and dictating play. Being pushed to the back = defending more.',
                 fatigue: 'Fatigue Score',
                 fatigue_desc: 'How much each player slowed down as the match progressed. Lower score = better conditioning. Tracks both average speed decline and burst speed (explosive movement) decline.'
             },
@@ -439,8 +439,8 @@
                 attack_desc: 'Number of aggressive volleys and smashes.',
                 rail: 'Wall Shots',
                 rail_desc: 'Effectiveness of shots using the walls.',
-                front_court: 'Net Play',
-                front_court_desc: 'Who\'s controlling the net position. Shows time at the net and aggressive volleys.',
+                court_pressure: 'Court Pressure',
+                court_pressure_desc: 'Who\'s forcing their opponent back? The player in front is applying pressure and controlling the rally.',
                 fatigue: 'Fatigue Score',
                 fatigue_desc: 'How much each player slowed down as the match progressed. Lower score = better conditioning.'
             }
@@ -611,24 +611,26 @@
                 summary += `<br><br><strong>🧱 Length Game & Rail Quality:</strong> Only <span class="highlight-p1">${hasRailData}</span> has sufficient ball tracking data for rail analysis. <span class="highlight-p2">${noRailData}</span>'s rail tightness could not be measured.`;
             }
             
-            // Front Court Analysis - uses reliable player positioning (not ball detection)
-            const p1FrontPct = p1.front_court_pct ?? 0;
-            const p2FrontPct = p2.front_court_pct ?? 0;
-            const frontPctDiff = Math.abs(p1FrontPct - p2FrontPct);
+            // Court Pressure Analysis - who's forcing opponent to back court
+            const p1PressPct = p1.pressure_pct ?? 0;
+            const p2PressPct = p2.pressure_pct ?? 0;
+            const p1BackPct = p1.back_court_pct ?? 0;
+            const p2BackPct = p2.back_court_pct ?? 0;
+            const pressureDiff = Math.abs(p1PressPct - p2PressPct);
             
-            if (frontPctDiff > 3) {
-                const frontWinner = p1FrontPct > p2FrontPct ? names.player1 : names.player2;
-                const frontLoser = p1FrontPct > p2FrontPct ? names.player2 : names.player1;
-                const frontWinnerPct = Math.max(p1FrontPct, p2FrontPct);
-                const frontLoserPct = Math.min(p1FrontPct, p2FrontPct);
+            if (pressureDiff > 5) {
+                const pressureLeader = p1PressPct > p2PressPct ? names.player1 : names.player2;
+                const pressureDefender = p1PressPct > p2PressPct ? names.player2 : names.player1;
+                const leaderPct = Math.max(p1PressPct, p2PressPct);
+                const defenderBackPct = p1PressPct > p2PressPct ? p2BackPct : p1BackPct;
                 
-                summary += `<br><br><strong>🎯 Front Court Battle:</strong> `;
-                summary += `<span class="highlight-p1">${frontWinner}</span> spent <strong>${frontWinnerPct.toFixed(0)}%</strong> of time in the front court compared to <span class="highlight-p2">${frontLoser}</span>'s <strong>${frontLoserPct.toFixed(0)}%</strong>. `;
+                summary += `<br><br><strong>💪 Court Pressure:</strong> `;
+                summary += `<span class="highlight-p1">${pressureLeader}</span> was in front of their opponent <strong>${leaderPct.toFixed(0)}%</strong> of the time, forcing <span class="highlight-p2">${pressureDefender}</span> to defend from the back court (<strong>${defenderBackPct.toFixed(0)}%</strong> of time). `;
                 
-                if (frontPctDiff > 10) {
-                    summary += `This <strong>${frontPctDiff.toFixed(0)} percentage point gap</strong> indicates <span class="highlight-p1">${frontWinner}</span> is controlling the front of the court, either through effective drop shots or by forcing their opponent to stay back.`;
+                if (pressureDiff > 15) {
+                    summary += `This <strong>${pressureDiff.toFixed(0)} percentage point gap</strong> shows <span class="highlight-p1">${pressureLeader}</span> was clearly dictating play and pushing their opponent around.`;
                 } else {
-                    summary += `<span class="highlight-p1">${frontWinner}</span> is spending more time attacking at the front.`;
+                    summary += `<span class="highlight-p1">${pressureLeader}</span> consistently applied more pressure.`;
                 }
             }
             
@@ -758,13 +760,15 @@
             const tightRailAdvantage = railComparison.tight_rail_advantage ?? 'N/A';
             const railWinnerFromAnalysis = railComparison.winner ?? analysis.tight_rails?.analysis?.winner ?? 'N/A';
             
-            // Front court data - using COMPARATIVE metrics (player position %, no dropshot counts)
-            const p1FrontPct = p1.front_court_pct ?? 0;
-            const p2FrontPct = p2.front_court_pct ?? 0;
-            const frontCourtComparison = analysis.front_court?.comparison || {};
-            const frontCourtAdvantagePct = frontCourtComparison.front_court_advantage_pct ?? 0;
-            const frontCourtWinner = frontCourtComparison.front_court_winner ?? analysis.front_court?.analysis?.winner ?? 'N/A';
-            const frontCourtAnalysis = analysis.front_court || {};
+            // Court pressure data - who's forcing opponent to back court
+            const p1PressurePct = p1.pressure_pct ?? 0;
+            const p2PressurePct = p2.pressure_pct ?? 0;
+            const p1BackCourtPct = p1.back_court_pct ?? 0;
+            const p2BackCourtPct = p2.back_court_pct ?? 0;
+            const courtPressureComparison = analysis.court_pressure?.comparison || {};
+            const pressureAdvantagePct = courtPressureComparison.pressure_advantage_pct ?? 0;
+            const pressureWinner = courtPressureComparison.pressure_winner ?? analysis.court_pressure?.analysis?.winner ?? 'N/A';
+            const courtPressureAnalysis = analysis.court_pressure || {};
             
             // Fatigue data - tracks speed decline over time
             const p1Fatigue = p1.fatigue_score ?? 0;
@@ -1171,26 +1175,28 @@
                             <div class="analysis-text">${analysis.tight_rails?.analysis?.summary || 'Rail analysis not available.'}</div>
                             </div>
 
-                        <!-- Front Court Play (Comparative - Player Position Based) -->
+                        <!-- Court Pressure (Who's forcing opponent to back court) -->
                         <div class="metric-card full-width">
                             <div class="metric-header">
-                                <span class="metric-name">🎯 ${labels.front_court}</span>
-                                <span class="metric-winner ${frontCourtWinner === 'Player 1' ? 'p1' : frontCourtWinner === 'Player 2' ? 'p2' : 'tie'}" id="frontCourtWinner">${frontCourtWinner === 'Player 1' ? playerNames.player1 : frontCourtWinner === 'Player 2' ? playerNames.player2 : frontCourtWinner}</span>
+                                <span class="metric-name">💪 ${labels.court_pressure}</span>
+                                <span class="metric-winner ${pressureWinner === 'Player 1' ? 'p1' : pressureWinner === 'Player 2' ? 'p2' : 'tie'}" id="pressureWinner">${pressureWinner === 'Player 1' ? playerNames.player1 : pressureWinner === 'Player 2' ? playerNames.player2 : pressureWinner}</span>
                             </div>
-                            <p class="metric-desc">Who controlled the front of the court? Based on player positioning.</p>
+                            <p class="metric-desc">${labels.court_pressure_desc}</p>
                             <div class="metric-bars">
                                 <div class="metric-player p1">
                                     <div class="metric-player-label player1-name">${playerNames.player1}</div>
-                                    <div class="metric-player-value">${p1FrontPct}%</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front court</div>
+                                    <div class="metric-player-value">${p1PressurePct}%</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front of opponent</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${p1BackCourtPct}% forced to back court</div>
                                 </div>
                                 <div class="metric-player p2">
                                     <div class="metric-player-label player2-name">${playerNames.player2}</div>
-                                    <div class="metric-player-value">${p2FrontPct}%</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front court</div>
+                                    <div class="metric-player-value">${p2PressurePct}%</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">time in front of opponent</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${p2BackCourtPct}% forced to back court</div>
                                 </div>
                             </div>
-                            <div class="analysis-text">${frontCourtAnalysis.analysis?.summary || frontCourtAnalysis.summary || 'Front court analysis not available.'}</div>
+                            <div class="analysis-text">${courtPressureAnalysis.analysis?.summary || courtPressureAnalysis.summary || 'Court pressure analysis not available.'}</div>
                         </div>
 
                         <!-- Fatigue Score -->
@@ -1259,7 +1265,7 @@
                         <span class="suggestion-chip" onclick="askQuestion('Explain ${labels.t_dominance}')">T-Dominance?</span>
                         <span class="suggestion-chip" onclick="askQuestion('Who has tighter rails?')">Tight rails?</span>
                             <span class="suggestion-chip" onclick="askQuestion('Who is more aggressive?')">More aggressive?</span>
-                            <span class="suggestion-chip" onclick="askQuestion('Who controls the front court?')">Front court?</span>
+                            <span class="suggestion-chip" onclick="askQuestion('Who is applying more court pressure?')">Court pressure?</span>
                             <span class="suggestion-chip" onclick="askQuestion('Who is more fatigued?')">Fatigue?</span>
                         </div>
                         <div class="chat-messages" id="chatMessages">
@@ -1351,9 +1357,9 @@
             const p1TightRails = p1Data.tight_rail_count ?? 0;
             const p2TightRails = p2Data.tight_rail_count ?? 0;
             
-            // Front court (higher % is better - player position based)
-            const p1FrontPct = p1Data.front_court_pct ?? 0;
-            const p2FrontPct = p2Data.front_court_pct ?? 0;
+            // Court pressure (higher % is better - who's in front more)
+            const p1PressurePctVal = p1Data.pressure_pct ?? 0;
+            const p2PressurePctVal = p2Data.pressure_pct ?? 0;
             
             // Update ALL metric winner badges
             const updateWinner = (id, p1Val, p2Val, lowerIsBetter = false) => {
@@ -1371,7 +1377,7 @@
             updateWinner('runningWinner', p1Running, p2Running);
             updateWinner('attackWinner', p1Attacks, p2Attacks);
             updateWinner('railWinner', p1TightRails, p2TightRails);  // More tight rails = better
-            updateWinner('frontCourtWinner', p1FrontPct, p2FrontPct);  // Higher front court % = better
+            updateWinner('pressureWinner', p1PressurePctVal, p2PressurePctVal);  // Higher pressure % = better (in front more)
             
             // Update any remaining analysis text that contains "Player 1" or "Player 2"
             document.querySelectorAll('.analysis-text').forEach(el => {

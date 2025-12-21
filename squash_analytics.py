@@ -715,25 +715,27 @@ def analyze_zone_dwell_time(frames_data, video_width, video_height):
 # FRONT COURT ANALYSIS (Dropshots & Retrieves)
 # =============================================================================
 
-def analyze_front_court_play(frames_data, video_width, video_height, fps):
+def analyze_court_pressure(frames_data, video_width, video_height, fps):
     """
-    Analyze front court activity for each player based on PLAYER POSITION only.
+    Analyze court pressure - who's forcing their opponent to the back of the court more.
     
-    This uses reliable player detection (not ball detection) to determine:
-    - Time spent in front court (front 30% of court)
-    - Comparative advantage in front court control
+    This measures relative positioning between players:
+    - When Player A is in front of Player B, Player A is applying pressure
+    - The player who keeps their opponent pinned back is dominating
+    - Being forced to the back court = defending, being pushed around
     
-    Note: Dropshot counting has been removed as it relies on unreliable ball detection.
-    Instead, we focus on comparative player positioning which is much more reliable.
+    This is more meaningful than "front court play" because it shows who's
+    dictating the rally and who's being pushed around.
     """
-    # Define front court as front 30% (y < 0.30 in normalized coords)
-    front_court_threshold = 0.30
+    # Track pressure metrics
+    p1_ahead_frames = 0  # Frames where P1 is closer to front wall than P2
+    p2_ahead_frames = 0  # Frames where P2 is closer to front wall than P1
+    p1_back_court_frames = 0  # Frames where P1 is in back 40% of court
+    p2_back_court_frames = 0  # Frames where P2 is in back 40% of court
+    total_frames = 0
     
-    # Track metrics for each player (PLAYER POSITION BASED - reliable)
-    p1_front_time = 0  # Frames in front court
-    p2_front_time = 0
-    p1_total_frames = 0
-    p2_total_frames = 0
+    back_court_threshold = 0.60  # Back 40% of court (y > 0.60 in normalized coords)
+    position_margin = 0.05  # 5% margin to count as "meaningfully ahead"
     
     for frame_data in frames_data:
         players = frame_data.get('players', [])
@@ -751,65 +753,76 @@ def analyze_front_court_play(frames_data, video_width, video_height, fps):
         p1_center = p1_player['center']
         p2_center = p2_player['center']
         
-        # Normalize positions
+        # Normalize Y positions (lower Y = closer to front wall)
         p1_norm_y = p1_center[1] / video_height
         p2_norm_y = p2_center[1] / video_height
         
-        # Track front court time
-        p1_total_frames += 1
-        p2_total_frames += 1
+        total_frames += 1
         
-        if p1_norm_y < front_court_threshold:
-            p1_front_time += 1
-        if p2_norm_y < front_court_threshold:
-            p2_front_time += 1
+        # Who's in front of whom? (lower Y = more forward)
+        if p1_norm_y < p2_norm_y - position_margin:  # P1 is ahead by meaningful margin
+            p1_ahead_frames += 1
+        elif p2_norm_y < p1_norm_y - position_margin:  # P2 is ahead by meaningful margin
+            p2_ahead_frames += 1
+        
+        # Track back court time (being pushed back)
+        if p1_norm_y > back_court_threshold:
+            p1_back_court_frames += 1
+        if p2_norm_y > back_court_threshold:
+            p2_back_court_frames += 1
+    
+    if total_frames == 0:
+        return {
+            'player1': {'pressure_pct': 0, 'back_court_pct': 0},
+            'player2': {'pressure_pct': 0, 'back_court_pct': 0},
+            'comparison': {'pressure_winner': 'N/A', 'pressure_advantage_pct': 0, 'winner': 'N/A'},
+            'analysis': {'winner': 'N/A', 'summary': 'Insufficient data for court pressure analysis.'}
+        }
     
     # Calculate percentages
-    p1_front_pct = round((p1_front_time / p1_total_frames) * 100, 1) if p1_total_frames > 0 else 0
-    p2_front_pct = round((p2_front_time / p2_total_frames) * 100, 1) if p2_total_frames > 0 else 0
+    p1_pressure_pct = round((p1_ahead_frames / total_frames) * 100, 1)
+    p2_pressure_pct = round((p2_ahead_frames / total_frames) * 100, 1)
+    p1_back_court_pct = round((p1_back_court_frames / total_frames) * 100, 1)
+    p2_back_court_pct = round((p2_back_court_frames / total_frames) * 100, 1)
     
-    # Calculate COMPARATIVE advantage (how much more one player controlled front court)
-    front_court_advantage_pct = abs(p1_front_pct - p2_front_pct)
+    # Determine who's applying more pressure
+    pressure_diff = p1_pressure_pct - p2_pressure_pct
+    pressure_advantage_pct = abs(pressure_diff)
     
-    # Determine winner based on front court presence
-    if p1_front_pct > p2_front_pct + 3:  # 3% threshold for meaningful difference
-        winner = 'Player 1'
-        front_court_winner = 'Player 1'
-    elif p2_front_pct > p1_front_pct + 3:
-        winner = 'Player 2'
-        front_court_winner = 'Player 2'
+    if pressure_diff > 5:  # P1 is ahead more often (5% threshold)
+        pressure_winner = 'Player 1'
+        pushed_back = 'Player 2'
+    elif pressure_diff < -5:  # P2 is ahead more often
+        pressure_winner = 'Player 2'
+        pushed_back = 'Player 1'
     else:
-        winner = 'Even'
-        front_court_winner = 'Even'
+        pressure_winner = 'Even'
+        pushed_back = None
     
-    # Generate COMPARATIVE analysis text (no ball-dependent metrics)
-    if p1_total_frames == 0 and p2_total_frames == 0:
-        analysis = "Unable to analyze front court play - insufficient player tracking data."
-    elif front_court_winner == 'Even':
-        analysis = f"Both players had similar front court presence ({p1_front_pct}% vs {p2_front_pct}%). Neither dominated the front of the court."
+    # Generate analysis
+    if pressure_winner == 'Even':
+        analysis = f"Both players traded court position evenly ({p1_pressure_pct}% vs {p2_pressure_pct}% time in front). Neither consistently forced the other into the back court."
     else:
-        winner_pct = p1_front_pct if front_court_winner == 'Player 1' else p2_front_pct
-        loser_pct = p2_front_pct if front_court_winner == 'Player 1' else p1_front_pct
-        analysis = f"{front_court_winner} controlled the front court {front_court_advantage_pct:.0f}% more ({winner_pct}% vs {loser_pct}%), putting pressure on their opponent."
+        winner_pct = p1_pressure_pct if pressure_winner == 'Player 1' else p2_pressure_pct
+        loser_back_pct = p2_back_court_pct if pressure_winner == 'Player 1' else p1_back_court_pct
+        analysis = f"{pressure_winner} was in front {winner_pct}% of the time, forcing {pushed_back} to defend from the back court ({loser_back_pct}% of time in back court)."
     
     return {
         'player1': {
-            'front_court_pct': p1_front_pct,
-            'dropshots': 0,  # Dropshot counting removed - relies on unreliable ball detection
-            'retrieves': 0   # Retrieve counting removed - relies on unreliable ball detection
+            'pressure_pct': p1_pressure_pct,
+            'back_court_pct': p1_back_court_pct
         },
         'player2': {
-            'front_court_pct': p2_front_pct,
-            'dropshots': 0,  # Dropshot counting removed - relies on unreliable ball detection
-            'retrieves': 0   # Retrieve counting removed - relies on unreliable ball detection
+            'pressure_pct': p2_pressure_pct,
+            'back_court_pct': p2_back_court_pct
         },
         'comparison': {
-            'front_court_advantage_pct': round(front_court_advantage_pct, 1),
-            'front_court_winner': front_court_winner,
-            'winner': winner
+            'pressure_winner': pressure_winner,
+            'pressure_advantage_pct': round(pressure_advantage_pct, 1),
+            'winner': pressure_winner
         },
         'analysis': {
-            'winner': winner,
+            'winner': pressure_winner,
             'summary': analysis
         }
     }
@@ -1518,8 +1531,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
     # Analyze zone dwell time (heatmap data)
     zone_analysis = analyze_zone_dwell_time(frames_data, video_width, video_height)
     
-    # Analyze front court play (dropshots and retrieves)
-    front_court = analyze_front_court_play(frames_data, video_width, video_height, fps)
+    # Analyze court pressure (who's forcing opponent to back court)
+    court_pressure = analyze_court_pressure(frames_data, video_width, video_height, fps)
     
     # Analyze performance decay (first half vs second half)
     performance_decay = analyze_performance_decay(frames_data, video_width, video_height, fps)
@@ -1556,9 +1569,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'avg_rail_distance_ft': tight_rails['player1'].get('avg_wall_distance_ft', -1),
             'avg_rail_distance_inches': tight_rails['player1'].get('avg_wall_distance_inches', -1),
             'tight_rail_count': tight_rails['player1']['tight_rail_count'],
-            'front_court_pct': front_court['player1']['front_court_pct'],
-            'dropshots': front_court['player1']['dropshots'],
-            'retrieves': front_court['player1']['retrieves'],
+            'pressure_pct': court_pressure['player1']['pressure_pct'],
+            'back_court_pct': court_pressure['player1']['back_court_pct'],
             'fatigue_score': fatigue['player1']['fatigue_score'],
             'speed_decline_pct': fatigue['player1']['speed_decline_pct'],
             'early_speed': fatigue['player1']['early_speed'],
@@ -1576,9 +1588,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'avg_rail_distance_ft': tight_rails['player2'].get('avg_wall_distance_ft', -1),
             'avg_rail_distance_inches': tight_rails['player2'].get('avg_wall_distance_inches', -1),
             'tight_rail_count': tight_rails['player2']['tight_rail_count'],
-            'front_court_pct': front_court['player2']['front_court_pct'],
-            'dropshots': front_court['player2']['dropshots'],
-            'retrieves': front_court['player2']['retrieves'],
+            'pressure_pct': court_pressure['player2']['pressure_pct'],
+            'back_court_pct': court_pressure['player2']['back_court_pct'],
             'fatigue_score': fatigue['player2']['fatigue_score'],
             'speed_decline_pct': fatigue['player2']['speed_decline_pct'],
             'early_speed': fatigue['player2']['early_speed'],
@@ -1605,7 +1616,7 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
                 'more_aggressive': 'Player 1' if p1_attacks > p2_attacks else 'Player 2'
             },
             'tight_rails': tight_rails['analysis'],
-            'front_court': front_court['analysis'],
+            'court_pressure': court_pressure['analysis'],
             'fatigue': fatigue['analysis']
         },
         'insights': generate_match_insights(
@@ -1616,7 +1627,7 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
         ),
         'shot_sequences': shot_sequences,
         'zone_analysis': zone_analysis,
-        'front_court': front_court,
+        'court_pressure': court_pressure,
         'performance_decay': performance_decay,
         'fatigue': fatigue
     }
@@ -2128,13 +2139,11 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     p1_zone_totals = {'front_court': 0, 'mid_court': 0, 'back_court': 0}
     p2_zone_totals = {'front_court': 0, 'mid_court': 0, 'back_court': 0}
     
-    # Front court play aggregates
-    p1_total_front_pct = 0
-    p2_total_front_pct = 0
-    p1_total_dropshots = 0
-    p2_total_dropshots = 0
-    p1_total_retrieves = 0
-    p2_total_retrieves = 0
+    # Court pressure aggregates
+    p1_total_pressure_pct = 0
+    p2_total_pressure_pct = 0
+    p1_total_back_court_pct = 0
+    p2_total_back_court_pct = 0
     
     # Fatigue aggregates (weighted by duration)
     p1_total_fatigue = 0
@@ -2213,13 +2222,11 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         p1_total_tight_rails += p1.get('tight_rail_count', 0)
         p2_total_tight_rails += p2.get('tight_rail_count', 0)
         
-        # Front court play
-        p1_total_front_pct += p1.get('front_court_pct', 0) * game_duration
-        p2_total_front_pct += p2.get('front_court_pct', 0) * game_duration
-        p1_total_dropshots += p1.get('dropshots', 0)
-        p2_total_dropshots += p2.get('dropshots', 0)
-        p1_total_retrieves += p1.get('retrieves', 0)
-        p2_total_retrieves += p2.get('retrieves', 0)
+        # Court pressure
+        p1_total_pressure_pct += p1.get('pressure_pct', 0) * game_duration
+        p2_total_pressure_pct += p2.get('pressure_pct', 0) * game_duration
+        p1_total_back_court_pct += p1.get('back_court_pct', 0) * game_duration
+        p2_total_back_court_pct += p2.get('back_court_pct', 0) * game_duration
         
         # Fatigue (weighted by duration, only count valid data)
         p1_fatigue = p1.get('fatigue_score', 0)
@@ -2304,8 +2311,10 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         p2_avg_scramble = p2_total_scramble / total_duration
         p1_avg_t_dom = p1_total_t_dominance / total_duration
         p2_avg_t_dom = p2_total_t_dominance / total_duration
-        p1_avg_front_pct = p1_total_front_pct / total_duration
-        p2_avg_front_pct = p2_total_front_pct / total_duration
+        p1_avg_pressure_pct = p1_total_pressure_pct / total_duration
+        p2_avg_pressure_pct = p2_total_pressure_pct / total_duration
+        p1_avg_back_court_pct = p1_total_back_court_pct / total_duration
+        p2_avg_back_court_pct = p2_total_back_court_pct / total_duration
         
         for key in p1_zone_totals:
             p1_zone_totals[key] = round(p1_zone_totals[key] / total_duration, 1)
@@ -2313,7 +2322,8 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     else:
         p1_avg_scramble = p2_avg_scramble = 0
         p1_avg_t_dom = p2_avg_t_dom = 50
-        p1_avg_front_pct = p2_avg_front_pct = 0
+        p1_avg_pressure_pct = p2_avg_pressure_pct = 0
+        p1_avg_back_court_pct = p2_avg_back_court_pct = 0
     
     # Calculate rail averages - use pre-calculated percentages from games when available
     # (more accurate since they were calculated with correct video width)
@@ -2587,9 +2597,8 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'total_tight_rails': p1_total_tight_rails,
             'tight_rail_count': p1_total_tight_rails,  # Alias for compatibility
             't_dominance_trend': round(p1_t_dom_change, 1),
-            'front_court_pct': round(p1_avg_front_pct, 1),
-            'dropshots': p1_total_dropshots,
-            'retrieves': p1_total_retrieves,
+            'pressure_pct': round(p1_avg_pressure_pct, 1),
+            'back_court_pct': round(p1_avg_back_court_pct, 1),
             'fatigue_score': p1_avg_fatigue,
             'speed_decline_pct': p1_avg_speed_decline,
             'early_speed': p1_avg_early_speed,
@@ -2610,9 +2619,8 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'total_tight_rails': p2_total_tight_rails,
             'tight_rail_count': p2_total_tight_rails,  # Alias for compatibility
             't_dominance_trend': round(p2_t_dom_change, 1),
-            'front_court_pct': round(p2_avg_front_pct, 1),
-            'dropshots': p2_total_dropshots,
-            'retrieves': p2_total_retrieves,
+            'pressure_pct': round(p2_avg_pressure_pct, 1),
+            'back_court_pct': round(p2_avg_back_court_pct, 1),
             'fatigue_score': p2_avg_fatigue,
             'speed_decline_pct': p2_avg_speed_decline,
             'early_speed': p2_avg_early_speed,
@@ -2652,14 +2660,14 @@ def combine_match_analytics(game_analytics_list, game_names=None):
                 'more_aggressive': 'Player 1' if p1_total_attacks > p2_total_attacks else 'Player 2'
             },
             'tight_rails': rail_analysis,
-            'front_court': {
-                # Use front_court_pct (reliable player positioning) instead of dropshots (unreliable ball detection)
-                'winner': 'Player 1' if p1_avg_front_pct > p2_avg_front_pct + 3 else 
-                          'Player 2' if p2_avg_front_pct > p1_avg_front_pct + 3 else 'Even',
-                'summary': (f"Player 1 spent {p1_avg_front_pct:.0f}% of time in the front court. Player 2 spent {p2_avg_front_pct:.0f}%. " + 
-                          (f"Player 1 controlled the front court more." if p1_avg_front_pct > p2_avg_front_pct + 5 else
-                           f"Player 2 controlled the front court more." if p2_avg_front_pct > p1_avg_front_pct + 5 else
-                           "Both players had similar front court presence."))
+            'court_pressure': {
+                'winner': 'Player 1' if p1_avg_pressure_pct > p2_avg_pressure_pct + 5 else 
+                          'Player 2' if p2_avg_pressure_pct > p1_avg_pressure_pct + 5 else 'Even',
+                'summary': (f"Player 1 was in front {p1_avg_pressure_pct:.0f}% of the time (opponent in back court {p2_avg_back_court_pct:.0f}%). " +
+                           f"Player 2 was in front {p2_avg_pressure_pct:.0f}% of the time (opponent in back court {p1_avg_back_court_pct:.0f}%). " +
+                          (f"Player 1 applied more court pressure, forcing Player 2 to defend." if p1_avg_pressure_pct > p2_avg_pressure_pct + 5 else
+                           f"Player 2 applied more court pressure, forcing Player 1 to defend." if p2_avg_pressure_pct > p1_avg_pressure_pct + 5 else
+                           "Both players traded court position evenly."))
             },
             'fatigue': {
                 'winner': fatigue_winner,
