@@ -320,7 +320,7 @@ def results_page(job_id):
     players_images = list(result_dir.glob("*_players.jpg"))
     og_image = f"/results/{job_id}/files/{players_images[0].name}" if players_images else None
     
-    return render_template('customer/results.html', 
+    return render_template('results.html', 
         job_id=job_id,
         og_title=clean_name,
         og_image=og_image,
@@ -444,8 +444,10 @@ def serve_result_file(job_id, filename):
             return response
         else:
             # No range request - return full file info but let browser request ranges
-            response = send_from_directory(str(result_dir), filename)
+            response = send_from_directory(str(result_dir), filename, mimetype='video/mp4')
             response.headers['Accept-Ranges'] = 'bytes'
+            response.headers['Content-Type'] = 'video/mp4'
+            response.headers['Cache-Control'] = 'public, max-age=3600'
             return response
     
     # For non-video files, use standard send_from_directory
@@ -943,7 +945,7 @@ def match_results_page(match_id):
                     og_image = f"/results/{first_job_id}/files/{players_images[0].name}"
     
     # Use unified results template - it auto-detects single vs multi-game
-    return render_template('customer/results.html', 
+    return render_template('results.html', 
         job_id=match_id,
         og_title=og_title,
         og_image=og_image,

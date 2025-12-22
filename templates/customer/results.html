@@ -982,8 +982,8 @@
                         <div class="video-header">
                             <div class="video-title">🎬 Match Video</div>
                         </div>
-                        <video class="video-player" controls>
-                            <source src="/results/${jobId}/files/${jobId}_${videoName}_annotated.mp4" type="video/mp4">
+                        <video class="video-player" controls playsinline preload="metadata">
+                            <source src="/results/${jobId}/files/${videoName}_annotated.mp4" type="video/mp4">
                             Your browser does not support video playback.
                         </video>
                     </div>
@@ -1027,7 +1027,7 @@
                     <div class="section-card">
                         <h2 class="section-title">📥 Download Results</h2>
                         <div class="downloads-grid">
-                            <a href="/results/${jobId}/files/${jobId}_${videoName}_annotated.mp4" class="download-item" download>
+                            <a href="/results/${jobId}/files/${videoName}_annotated.mp4" class="download-item" download>
                                 <span class="download-icon">🎥</span>
                                 <div class="download-info">
                                     <div class="download-name">Annotated Video</div>
