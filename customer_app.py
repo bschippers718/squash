@@ -310,7 +310,22 @@ def results_page(job_id):
     if not job:
         return "Job not found", 404
     
-    return render_template('results.html', job_id=job_id)
+    # Get metadata for OG tags (social sharing previews)
+    video_name = job.get('filename', job_id)
+    # Clean up video name for display
+    clean_name = video_name.replace('_', ' ').replace(f"{job_id} ", "")
+    
+    # Find the players image for OG preview
+    result_dir = RESULTS_FOLDER / job_id
+    players_images = list(result_dir.glob("*_players.jpg"))
+    og_image = f"/results/{job_id}/files/{players_images[0].name}" if players_images else None
+    
+    return render_template('customer/results.html', 
+        job_id=job_id,
+        og_title=clean_name,
+        og_image=og_image,
+        og_description="Squash match analysis powered by AI"
+    )
 
 def load_job_from_disk(job_id):
     """Try to load a completed job from disk"""
@@ -905,8 +920,35 @@ def match_results_page(match_id):
     if not job:
         return "Match not found", 404
     
+    # Get metadata for OG tags (social sharing previews)
+    og_title = "Match Analysis"
+    og_image = None
+    
+    # Try to get match name and player image from combined analytics or first game
+    if job.get('type') == 'combined_match':
+        combined = job.get('result', {}).get('combined_analytics', {})
+        game_jobs = combined.get('game_jobs', [])
+        if game_jobs:
+            # Use first game's info
+            first_game = game_jobs[0]
+            first_job_id = first_game.get('job_id', '')
+            video_name = first_game.get('video_name', first_game.get('filename', ''))
+            og_title = video_name.replace('_', ' ')
+            
+            # Find players image from first game
+            first_game_dir = RESULTS_FOLDER / first_job_id
+            if first_game_dir.exists():
+                players_images = list(first_game_dir.glob("*_players.jpg"))
+                if players_images:
+                    og_image = f"/results/{first_job_id}/files/{players_images[0].name}"
+    
     # Use unified results template - it auto-detects single vs multi-game
-    return render_template('results.html', job_id=match_id)
+    return render_template('customer/results.html', 
+        job_id=match_id,
+        og_title=og_title,
+        og_image=og_image,
+        og_description="Squash match analysis powered by AI"
+    )
 
 if __name__ == '__main__':
     # Create template directory

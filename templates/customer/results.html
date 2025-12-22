@@ -3,7 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Score Card | Squash.AI</title>
+    <title>{{ og_title or 'Score Card' }} | Squash.AI</title>
+    
+    <!-- Open Graph Meta Tags for Social Sharing (iMessage, Facebook, etc.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ og_title or 'Match Analysis' }} | Squash.AI">
+    <meta property="og:description" content="{{ og_description or 'AI-powered squash match analysis' }}">
+    {% if og_image %}
+    <meta property="og:image" content="{{ request.url_root[:-1] }}{{ og_image }}">
+    {% endif %}
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:site_name" content="Squash.AI">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ og_title or 'Match Analysis' }} | Squash.AI">
+    <meta name="twitter:description" content="{{ og_description or 'AI-powered squash match analysis' }}">
+    {% if og_image %}
+    <meta name="twitter:image" content="{{ request.url_root[:-1] }}{{ og_image }}">
+    {% endif %}
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
