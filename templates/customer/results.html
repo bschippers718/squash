@@ -608,49 +608,76 @@
             
             let summary = '';
             
-            // Opening paragraph - overall assessment
+            // Calculate additional metrics for nuanced analysis
+            const scrambleDiff = Math.abs(p1Scramble - p2Scramble);
+            const runningDiffAbs = Math.abs(p1Running - p2Running);
+            const attackDiff = Math.abs(p1Attacks - p2Attacks);
+            const bothScrambleLow = p1Scramble < 100 && p2Scramble < 100;
+            const bothScrambleHigh = p1Scramble > 150 && p2Scramble > 150;
+            
+            // Opening paragraph - specific, data-driven assessment
             if (tDomDiff < 5) {
-                summary = `<span class="highlight-p1">${names.player1}</span> and <span class="highlight-p2">${names.player2}</span> played an <strong>evenly matched tactical battle</strong> — the kind of game that often comes down to mental fortitude in crucial moments. The data reveals a competitive contest with both players showing periods of dominance.`;
+                if (bothScrambleHigh) {
+                    summary = `This was a <strong>physical war of attrition</strong>. <span class="highlight-p1">${names.player1}</span> (${p1TDom.toFixed(1)}% T-control) and <span class="highlight-p2">${names.player2}</span> (${p2TDom.toFixed(1)}%) traded the T nearly evenly, but both players averaged over 150 ft from center — indicating long, grueling rallies where neither could establish lasting control.`;
+                } else if (bothScrambleLow) {
+                    summary = `A <strong>high-quality tactical chess match</strong>. Both <span class="highlight-p1">${names.player1}</span> (${p1TDom.toFixed(1)}%) and <span class="highlight-p2">${names.player2}</span> (${p2TDom.toFixed(1)}%) maintained excellent court position throughout, with low scramble scores suggesting efficient movement and strong shot selection from both players.`;
+                } else {
+                    summary = `<span class="highlight-p1">${names.player1}</span> and <span class="highlight-p2">${names.player2}</span> were <strong>evenly matched</strong> in T-control (${p1TDom.toFixed(1)}% vs ${p2TDom.toFixed(1)}%). This ${tDomDiff.toFixed(1)} percentage point margin is razor-thin — games like this often come down to mental toughness in key moments.`;
+                }
             } else if (tDomDiff < 15) {
-                summary = `<span class="highlight-p1">${tDomWinner}</span> held a <strong>tactical advantage</strong> in this match, though <span class="highlight-p2">${tDomLoser}</span> showed flashes of competitive play. The data reveals a classic "controller vs. retriever" dynamic, with one player dictating play from the T while the other was forced into a more reactive posture.`;
+                const workloadNote = runningRatio >= 20 ? ` while forcing ${runningMore} to cover ${runningRatio}% more distance` : '';
+                summary = `<span class="highlight-p1">${tDomWinner}</span> established a <strong>${tDomDiff.toFixed(0)} percentage point T-control advantage</strong> (${winnerTDom.toFixed(1)}% vs ${loserTDom.toFixed(1)}%)${workloadNote}. This margin allowed ${tDomWinner} to consistently take the ball early and apply pressure, though ${tDomLoser} remained competitive throughout.`;
             } else {
-                summary = `<span class="highlight-p1">${tDomWinner}</span> held a <strong>clear tactical advantage</strong> in this match, though <span class="highlight-p2">${tDomLoser}</span> showed flashes of competitive play. The data reveals a classic "controller vs. retriever" dynamic, with one player dictating play from the T while the other was forced into a reactive, defensive posture.`;
+                const dominanceLevel = tDomDiff >= 25 ? 'commanding' : 'significant';
+                const scrambleContext = scrambleWinner === tDomWinner ? 
+                    ` ${tDomWinner}'s superior positioning (avg ${scrambleWinnerVal.toFixed(1)} ft from T vs ${scrambleLoserVal.toFixed(1)} ft) meant they could volley and attack while ${tDomLoser} was stretched.` : 
+                    '';
+                summary = `<span class="highlight-p1">${tDomWinner}</span> demonstrated <strong>${dominanceLevel} court control</strong> with a ${tDomDiff.toFixed(0)} percentage point advantage (${winnerTDom.toFixed(1)}% vs ${loserTDom.toFixed(1)}%).${scrambleContext} When one player controls the T this decisively, they dictate the pace and pattern of every rally.`;
             }
             
-            // T-Dominance section
-            summary += `<br><br><strong><img src="/static/squash-ball.svg" alt="" style="width: 16px; height: 16px; vertical-align: middle;"> Court Control & The T:</strong> <span class="highlight-p1">${tDomWinner}</span> controlled the T <strong>${winnerTDom.toFixed(1)}%</strong> of the time compared to ${loserTDom.toFixed(1)}% for <span class="highlight-p2">${tDomLoser}</span>. `;
+            // T-Dominance section - more specific insights
+            summary += `<br><br><strong><img src="/static/squash-ball.svg" alt="" style="width: 16px; height: 16px; vertical-align: middle;"> Court Control & The T:</strong> `;
             
             if (tDomDiff >= 20) {
-                summary += `This <strong>${tDomDiff.toFixed(0)} percentage point gap</strong> is significant — <span class="highlight-p1">${tDomWinner}</span> was able to volley early, cut off angles, and force <span class="highlight-p2">${tDomLoser}</span> into the back corners repeatedly. When a player owns the T this decisively, they're essentially playing "downhill" — making their opponent do all the hard work.`;
+                const volleyAdvantage = winnerTDom >= 60 ? 'commanding volleying position' : 'consistent positional advantage';
+                summary += `<span class="highlight-p1">${tDomWinner}</span> owned the T with <strong>${winnerTDom.toFixed(1)}%</strong> control vs just ${loserTDom.toFixed(1)}% for <span class="highlight-p2">${tDomLoser}</span>. This ${tDomDiff.toFixed(0)}-point gap gave ${tDomWinner} a ${volleyAdvantage} — they could intercept shots early, cut off angles, and systematically push ${tDomLoser} into the back corners.`;
             } else if (tDomDiff >= 10) {
-                summary += `This <strong>${tDomDiff.toFixed(0)} percentage point gap</strong> shows clear court control. <span class="highlight-p1">${tDomWinner}</span> was consistently in a better position to dictate play.`;
+                summary += `<span class="highlight-p1">${tDomWinner}</span> held <strong>${winnerTDom.toFixed(1)}%</strong> T-control compared to ${loserTDom.toFixed(1)}% for <span class="highlight-p2">${tDomLoser}</span>. This ${tDomDiff.toFixed(0)}-point edge meant ${tDomWinner} more often had first strike opportunity on loose balls.`;
+            } else if (tDomDiff >= 5) {
+                summary += `The T was closely contested: <span class="highlight-p1">${tDomWinner}</span> at ${winnerTDom.toFixed(1)}%, <span class="highlight-p2">${tDomLoser}</span> at ${loserTDom.toFixed(1)}%. This ${tDomDiff.toFixed(1)}-point margin suggests neither player could establish lasting control — rallies likely featured frequent momentum shifts.`;
             } else {
-                summary += `The T was closely contested, with neither player establishing overwhelming positional dominance.`;
+                summary += `<span class="highlight-p1">${names.player1}</span> (${p1TDom.toFixed(1)}%) and <span class="highlight-p2">${names.player2}</span> (${p2TDom.toFixed(1)}%) split T-control almost evenly. This ${tDomDiff.toFixed(1)}-point difference is within the margin of a few key rallies — the match was decided by execution in pressure moments, not positional dominance.`;
             }
             
-            // Scramble Analysis section
+            // Scramble Analysis section - more nuanced
             if (p1Scramble > 0 && p2Scramble > 0) {
-                summary += `<br><br><strong>🏃 Movement & Scramble Analysis:</strong> <span class="highlight-p1">${scrambleWinner}</span> averaged <strong>${scrambleWinnerVal.toFixed(1)} ft</strong> from the T, while <span class="highlight-p2">${scrambleLoser}</span> averaged <strong>${scrambleLoserVal.toFixed(1)} ft</strong>. `;
+                summary += `<br><br><strong>🏃 Movement & Scramble:</strong> `;
+                
+                const scrambleDiffFt = Math.abs(scrambleWinnerVal - scrambleLoserVal).toFixed(1);
                 
                 if (scrambleRatio >= 1.5) {
-                    summary += `This <strong>${scrambleRatio}x difference</strong> tells a clear story: <span class="highlight-p2">${scrambleLoser}</span> was being systematically pushed into the corners and forced to scramble. High scramble scores typically indicate a player is under sustained pressure — they're reacting rather than dictating.`;
+                    summary += `<span class="highlight-p2">${scrambleLoser}</span> was stretched significantly further from center (avg <strong>${scrambleLoserVal.toFixed(1)} ft</strong>) compared to <span class="highlight-p1">${scrambleWinner}</span> (<strong>${scrambleWinnerVal.toFixed(1)} ft</strong>). This ${scrambleDiffFt} ft gap per rally adds up — ${scrambleLoser} was consistently chasing balls into the corners while ${scrambleWinner} controlled the middle.`;
                 } else if (scrambleRatio >= 1.2) {
-                    summary += `<span class="highlight-p2">${scrambleLoser}</span> was pushed further from the T more often, indicating they were under more pressure.`;
+                    summary += `<span class="highlight-p1">${scrambleWinner}</span> maintained tighter positioning (avg ${scrambleWinnerVal.toFixed(1)} ft from T) than <span class="highlight-p2">${scrambleLoser}</span> (${scrambleLoserVal.toFixed(1)} ft). The ${scrambleDiffFt} ft difference suggests ${scrambleWinner}'s length game was more effective at pinning their opponent deep.`;
                 } else {
-                    summary += `Both players showed similar movement patterns around the T.`;
+                    summary += `Both players maintained similar court position — <span class="highlight-p1">${names.player1}</span> averaged ${p1Scramble.toFixed(1)} ft from center, <span class="highlight-p2">${names.player2}</span> averaged ${p2Scramble.toFixed(1)} ft. Neither was able to consistently stretch the other out of position.`;
                 }
             }
             
-            // Running/Physical Workload section
+            // Running/Physical Workload section - with specific distances
             if (p1Running > 0 && p2Running > 0) {
-                summary += `<br><br><strong>💪 Physical Workload:</strong> <span class="highlight-p1">${runningLess}</span> covered approximately <strong>${runningLessVal.toFixed(1)} ft</strong> while <span class="highlight-p2">${runningMore}</span> covered <strong>${runningMoreVal.toFixed(1)} ft</strong>. `;
+                summary += `<br><br><strong>💪 Physical Workload:</strong> `;
+                
+                const distanceDiff = Math.abs(runningMoreVal - runningLessVal).toFixed(0);
                 
                 if (runningRatio >= 40) {
-                    summary += `<span class="highlight-p2">${runningMore}</span> ran <strong>${runningRatio}% more</strong> than their opponent — a significant physical disparity. In a long match, this kind of workload imbalance often manifests as fatigue in later games. <em>Notably, the player running more was likely also scrambling more — they were being worked hard in every dimension.</em>`;
+                    summary += `<span class="highlight-p2">${runningMore}</span> covered <strong>${runningMoreVal.toFixed(0)} ft</strong> — that's ${distanceDiff} ft more than <span class="highlight-p1">${runningLess}</span> (${runningLessVal.toFixed(0)} ft). This <strong>${runningRatio}% workload gap</strong> is significant: ${runningMore} was being physically ground down, covering the equivalent of ${(runningMoreVal / 5280).toFixed(2)} miles while ${runningLess} played a more economical game.`;
                 } else if (runningRatio >= 20) {
-                    summary += `<span class="highlight-p2">${runningMore}</span> ran <strong>${runningRatio}% more</strong>, suggesting they were doing more of the chasing.`;
+                    summary += `<span class="highlight-p2">${runningMore}</span> ran ${runningRatio}% more (${runningMoreVal.toFixed(0)} ft vs ${runningLessVal.toFixed(0)} ft). That extra ${distanceDiff} ft of movement adds up over a match — ${runningMore} was doing more of the physical work.`;
+                } else if (runningRatio >= 10) {
+                    summary += `<span class="highlight-p1">${names.player1}</span> covered ${p1Running.toFixed(0)} ft, <span class="highlight-p2">${names.player2}</span> covered ${p2Running.toFixed(0)} ft — a ${runningRatio}% difference. Both players were pushed physically.`;
                 } else {
-                    summary += `Both players covered similar distances, indicating an evenly physical contest.`;
+                    summary += `Both players covered nearly identical distances (<span class="highlight-p1">${names.player1}</span>: ${p1Running.toFixed(0)} ft, <span class="highlight-p2">${names.player2}</span>: ${p2Running.toFixed(0)} ft). This was an evenly contested physical battle.`;
                 }
             }
             

@@ -123,6 +123,16 @@ def process_video_task(job_id, video_path, sport='squash'):
         sys.stdout.flush()
         update_job(job_id, status='failed', message=error_msg)
 
+@app.route('/favicon.ico')
+def favicon():
+    """Return a simple tennis ball favicon"""
+    svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="45" fill="#c8e600"/>
+        <path d="M50 5 Q25 50 50 95" stroke="white" stroke-width="4" fill="none"/>
+        <path d="M50 5 Q75 50 50 95" stroke="white" stroke-width="4" fill="none"/>
+    </svg>'''
+    return svg, 200, {'Content-Type': 'image/svg+xml'}
+
 @app.route('/')
 def index():
     """Main upload page"""
