@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Matches | Squash.AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --accent: #00d4aa;
+            --accent-glow: rgba(0, 212, 170, 0.4);
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-elevated: #1a1a25;
+            --text-primary: #ffffff;
+            --text-secondary: #8b8b9e;
+            --border: #2a2a3a;
+            --player1: #00d4aa;
+            --player2: #6366f1;
+            --danger: #ff4757;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                var(--bg-dark);
+            z-index: -1;
+        }
+
+        /* Top Navigation */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(10, 10, 15, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .top-nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        .top-nav-logo img {
+            width: 32px;
+            height: 32px;
+        }
+        .top-nav-logo span {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .top-nav-auth {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .auth-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            text-decoration: none;
+        }
+        .auth-btn-login {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        .auth-btn-login:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .auth-btn-primary {
+            background: var(--accent);
+            border: none;
+            color: var(--bg-dark);
+        }
+        .auth-btn-primary:hover {
+            background: #00e6b8;
+        }
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 2px solid var(--accent);
+            cursor: pointer;
+            overflow: hidden;
+        }
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .auth-hidden { display: none !important; }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 100px 24px 40px;
+        }
+
+        /* Page Header */
+        .page-header {
+            margin-bottom: 40px;
+        }
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* Login Prompt */
+        .login-prompt {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 500px;
+            margin: 80px auto;
+        }
+        .login-prompt-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        .login-prompt h2 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+        }
+        .login-prompt p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* Matches Grid */
+        .matches-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        /* Match Card */
+        .match-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .match-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0, 212, 170, 0.15);
+        }
+        .match-card-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: var(--bg-elevated);
+        }
+        .match-card-body {
+            padding: 20px;
+        }
+        .match-card-players {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .match-card-player {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .player-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .player-dot.p1 { background: var(--player1); }
+        .player-dot.p2 { background: var(--player2); }
+        .match-card-vs {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+        .match-card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .match-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        .match-card-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .match-card-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding: 12px 20px;
+            border-top: 1px solid var(--border);
+        }
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .delete-btn:hover {
+            background: rgba(255, 71, 87, 0.1);
+            color: var(--danger);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        .empty-state h3 {
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+        }
+        .empty-state p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+    {% if clerk_publishable_key %}
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+    {% endif %}
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <a href="/" class="top-nav-logo">
+            <img src="/static/squash-ball.svg" alt="Squash.AI">
+            <span>Squash.AI</span>
+        </a>
+        <div class="top-nav-auth">
+            <div id="auth-buttons" class="auth-hidden">
+                <button class="auth-btn auth-btn-login" onclick="clerkSignIn()">Sign In</button>
+                <button class="auth-btn auth-btn-primary" onclick="clerkSignUp()">Sign Up</button>
+            </div>
+            <div id="user-menu" class="auth-hidden" style="display: flex; align-items: center; gap: 12px;">
+                <div class="user-avatar" onclick="clerkOpenUserProfile()" title="Account">
+                    <img id="user-avatar-img" src="" alt="Profile">
+                </div>
+                <button class="auth-btn auth-btn-login" onclick="clerkSignOut()">Sign Out</button>
+            </div>
+            <a href="/" class="auth-btn auth-btn-primary">+ New Analysis</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">My Matches</h1>
+            <p class="page-subtitle">Your saved match analyses</p>
+        </div>
+
+        <!-- Content Container -->
+        <div id="content">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading your matches...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let clerkLoaded = false;
+        let matches = [];
+
+        // ============================================================================
+        // Clerk Authentication
+        // ============================================================================
+
+        async function initClerk() {
+            if (typeof Clerk === 'undefined') {
+                console.log('Clerk not loaded');
+                showLoginPrompt();
+                return;
+            }
+
+            try {
+                await Clerk.load();
+                clerkLoaded = true;
+                updateAuthUI();
+
+                if (Clerk.user) {
+                    loadMatches();
+                } else {
+                    showLoginPrompt();
+                }
+
+                Clerk.addListener((event) => {
+                    updateAuthUI();
+                    if (Clerk.user) {
+                        loadMatches();
+                    } else {
+                        showLoginPrompt();
+                    }
+                });
+            } catch (err) {
+                console.error('Failed to initialize Clerk:', err);
+                showLoginPrompt();
+            }
+        }
+
+        function updateAuthUI() {
+            const authButtons = document.getElementById('auth-buttons');
+            const userMenu = document.getElementById('user-menu');
+            const avatarImg = document.getElementById('user-avatar-img');
+
+            if (clerkLoaded && Clerk.user) {
+                authButtons?.classList.add('auth-hidden');
+                userMenu?.classList.remove('auth-hidden');
+
+                if (avatarImg && Clerk.user.imageUrl) {
+                    avatarImg.src = Clerk.user.imageUrl;
+                }
+            } else {
+                authButtons?.classList.remove('auth-hidden');
+                userMenu?.classList.add('auth-hidden');
+            }
+        }
+
+        function clerkSignIn() {
+            if (clerkLoaded && Clerk.openSignIn) {
+                Clerk.openSignIn({});
+            }
+        }
+
+        function clerkSignUp() {
+            if (clerkLoaded && Clerk.openSignUp) {
+                Clerk.openSignUp({});
+            }
+        }
+
+        function clerkSignOut() {
+            if (clerkLoaded && Clerk.signOut) {
+                Clerk.signOut();
+            }
+        }
+
+        function clerkOpenUserProfile() {
+            if (clerkLoaded && Clerk.openUserProfile) {
+                Clerk.openUserProfile({});
+            }
+        }
+
+        // ============================================================================
+        // Matches Management
+        // ============================================================================
+
+        async function loadMatches() {
+            try {
+                const token = await Clerk.session.getToken();
+                const response = await fetch('/api/my-matches', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to load matches');
+
+                const data = await response.json();
+                matches = data.matches || [];
+                renderMatches();
+            } catch (err) {
+                console.error('Error loading matches:', err);
+                showError('Failed to load matches. Please try again.');
+            }
+        }
+
+        function renderMatches() {
+            const content = document.getElementById('content');
+
+            if (matches.length === 0) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎾</div>
+                        <h3>No saved matches yet</h3>
+                        <p>Upload a video and save the analysis to see it here</p>
+                        <a href="/" class="auth-btn auth-btn-primary">Upload Your First Match</a>
+                    </div>
+                `;
+                return;
+            }
+
+            const matchCards = matches.map(match => {
+                const date = new Date(match.created_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+
+                const duration = match.duration_seconds 
+                    ? `${Math.floor(match.duration_seconds / 60)}:${String(match.duration_seconds % 60).padStart(2, '0')}`
+                    : '';
+
+                const playerDisplay = match.player1_name && match.player2_name
+                    ? `<div class="match-card-players">
+                           <span class="match-card-player"><span class="player-dot p1"></span> ${match.player1_name}</span>
+                           <span class="match-card-vs">vs</span>
+                           <span class="match-card-player"><span class="player-dot p2"></span> ${match.player2_name}</span>
+                       </div>`
+                    : '';
+
+                const imageUrl = match.players_image_url || '/static/squash-ball.svg';
+
+                return `
+                    <div class="match-card-wrapper">
+                        <a href="/results/${match.job_id}" class="match-card">
+                            <img class="match-card-image" src="${imageUrl}" alt="Match preview" onerror="this.src='/static/squash-ball.svg'">
+                            <div class="match-card-body">
+                                ${playerDisplay}
+                                <div class="match-card-title">${match.filename || match.job_id}</div>
+                                <div class="match-card-meta">
+                                    <span>📅 ${date}</span>
+                                    ${duration ? `<span>⏱️ ${duration}</span>` : ''}
+                                    <span>🏸 ${match.sport || 'Squash'}</span>
+                                </div>
+                            </div>
+                        </a>
+                        <div class="match-card-actions">
+                            <button class="delete-btn" onclick="deleteMatch('${match.id}', event)">🗑️ Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            content.innerHTML = `<div class="matches-grid">${matchCards}</div>`;
+        }
+
+        async function deleteMatch(matchId, event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (!confirm('Are you sure you want to delete this match?')) return;
+
+            try {
+                const token = await Clerk.session.getToken();
+                const response = await fetch(`/api/matches/${matchId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to delete');
+
+                // Remove from local array and re-render
+                matches = matches.filter(m => m.id !== matchId);
+                renderMatches();
+            } catch (err) {
+                console.error('Error deleting match:', err);
+                alert('Failed to delete match. Please try again.');
+            }
+        }
+
+        function showLoginPrompt() {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="login-prompt">
+                    <div class="login-prompt-icon">🔐</div>
+                    <h2>Sign in to view your matches</h2>
+                    <p>Create an account or sign in to save and access your match analyses from any device.</p>
+                    <button class="auth-btn auth-btn-primary" onclick="clerkSignIn()" style="margin-right: 12px;">Sign In</button>
+                    <button class="auth-btn auth-btn-login" onclick="clerkSignUp()">Create Account</button>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <h3>Something went wrong</h3>
+                    <p>${message}</p>
+                    <button class="auth-btn auth-btn-primary" onclick="loadMatches()">Try Again</button>
+                </div>
+            `;
+        }
+
+        // Initialize
+        if (typeof Clerk !== 'undefined') {
+            initClerk();
+        } else {
+            window.addEventListener('load', () => setTimeout(initClerk, 100));
+        }
+    </script>
+</body>
+</html>
+

@@ -8,3 +8,8 @@ google-generativeai
 # ML - will install CPU versions via nixpacks
 ultralytics
 opencv-python-headless
+
+# Authentication & Database
+supabase>=2.0.0
+PyJWT>=2.8.0
+python-dotenv>=1.0.0

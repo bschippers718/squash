@@ -6,6 +6,10 @@ Allows customers to upload videos and track processing status.
 
 import os
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Set YOLO config directory to writable location (for Railway/cloud deployments)
 # This must be set BEFORE importing ultralytics
 os.environ['YOLO_CONFIG_DIR'] = '/tmp/ultralytics'
@@ -18,7 +22,7 @@ os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 # Prevent OpenCV from trying to load libGL.so.1
 os.environ['OPENCV_DISABLE_OPENCL'] = '1'
 
-from flask import Flask, render_template, request, jsonify, send_from_directory, Response
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response, g
 import re
 import uuid
 import json
@@ -111,6 +115,41 @@ def process_video_task(job_id, video_path, sport='squash'):
                 completed_at=datetime.now().isoformat()
             )
             print(f"[{job_id}] Processing completed successfully!", flush=True)
+            
+            # Auto-save to Supabase if user was logged in
+            job = get_job(job_id)
+            user_id = job.get('user_id')
+            if user_id:
+                try:
+                    from supabase_client import save_match, upload_player_image
+                    
+                    analytics = result.get('squash_analytics', {})
+                    
+                    # Upload player image
+                    players_image_url = None
+                    output_dir = RESULTS_FOLDER / job_id
+                    players_images = list(output_dir.glob("*_players.jpg"))
+                    if players_images:
+                        players_image_url = upload_player_image(job_id, str(players_images[0]))
+                    
+                    # Get player names
+                    player1_name = analytics.get('player1', {}).get('name')
+                    player2_name = analytics.get('player2', {}).get('name')
+                    
+                    # Save to Supabase
+                    save_match(
+                        user_id=user_id,
+                        job_id=job_id,
+                        filename=job.get('filename', job_id),
+                        analytics=analytics,
+                        sport=sport,
+                        players_image_url=players_image_url,
+                        player1_name=player1_name,
+                        player2_name=player2_name
+                    )
+                    print(f"[{job_id}] Auto-saved to Supabase for user {user_id}", flush=True)
+                except Exception as e:
+                    print(f"[{job_id}] Auto-save to Supabase failed: {e}", flush=True)
         else:
             error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
             print(f"[{job_id}] Processing failed: {error_msg}", flush=True)
@@ -136,7 +175,16 @@ def favicon():
 @app.route('/')
 def index():
     """Main upload page"""
-    return render_template('upload.html')
+    return render_template('upload.html', 
+        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', '')
+    )
+
+@app.route('/my-matches')
+def my_matches_page():
+    """User's saved matches page - requires login"""
+    return render_template('my_matches.html',
+        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', '')
+    )
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
@@ -157,6 +205,16 @@ def upload_video():
     valid_sports = ['squash', 'padel', 'tennis', 'table_tennis']
     if sport not in valid_sports:
         sport = 'squash'
+    
+    # Check if user is logged in (for auto-save after processing)
+    user_id = None
+    try:
+        from auth import get_current_user
+        user = get_current_user()
+        if user:
+            user_id = user.get('id')
+    except Exception as e:
+        print(f"Could not get user for auto-save: {e}")
     
     # Generate unique job ID
     job_id = str(uuid.uuid4())[:8]
@@ -180,7 +238,8 @@ def upload_video():
             'progress': 0,
             'message': 'Video uploaded, waiting to process...',
             'created_at': datetime.now().isoformat(),
-            'video_path': str(upload_path)
+            'video_path': str(upload_path),
+            'user_id': user_id  # Store user_id for auto-save
         }
     
     # Start processing in background thread (pass sport parameter)
@@ -317,6 +376,27 @@ def results_page(job_id):
     if not job:
         job = load_job_from_disk(job_id)
     
+    # If still not found, try to load from Supabase (for saved matches)
+    from_supabase = False
+    if not job:
+        try:
+            from supabase_client import get_match_by_job_id
+            match = get_match_by_job_id(job_id)
+            if match:
+                # Reconstruct job from Supabase data
+                analytics = match.get('analytics', {})
+                job = {
+                    'id': job_id,
+                    'filename': match.get('filename', job_id),
+                    'status': 'completed',
+                    'result': {'squash_analytics': analytics},
+                    'from_supabase': True,
+                    'players_image_url': match.get('players_image_url')
+                }
+                from_supabase = True
+        except Exception as e:
+            print(f"Error loading from Supabase: {e}")
+    
     if not job:
         return "Job not found", 404
     
@@ -326,15 +406,20 @@ def results_page(job_id):
     clean_name = video_name.replace('_', ' ').replace(f"{job_id} ", "")
     
     # Find the players image for OG preview
-    result_dir = RESULTS_FOLDER / job_id
-    players_images = list(result_dir.glob("*_players.jpg"))
-    og_image = f"/results/{job_id}/files/{players_images[0].name}" if players_images else None
+    og_image = None
+    if from_supabase and job.get('players_image_url'):
+        og_image = job.get('players_image_url')
+    else:
+        result_dir = RESULTS_FOLDER / job_id
+        players_images = list(result_dir.glob("*_players.jpg"))
+        og_image = f"/results/{job_id}/files/{players_images[0].name}" if players_images else None
     
     return render_template('results.html', 
         job_id=job_id,
         og_title=clean_name,
         og_image=og_image,
-        og_description="Squash match analysis powered by AI"
+        og_description="Squash match analysis powered by AI",
+        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', '')
     )
 
 def load_job_from_disk(job_id):
@@ -959,8 +1044,174 @@ def match_results_page(match_id):
         job_id=match_id,
         og_title=og_title,
         og_image=og_image,
-        og_description="Squash match analysis powered by AI"
+        og_description="Squash match analysis powered by AI",
+        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', '')
     )
+
+
+# ============================================================================
+# Authentication & User Management API Routes
+# ============================================================================
+
+@app.route('/api/user')
+def get_current_user_api():
+    """Get current authenticated user info"""
+    try:
+        from auth import get_current_user
+        user = get_current_user()
+        
+        if not user:
+            return jsonify({'authenticated': False, 'user': None})
+        
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'id': user.get('id'),
+                'clerk_id': user.get('clerk_id'),
+                'email': user.get('email'),
+                'name': user.get('name'),
+                'image_url': user.get('image_url')
+            }
+        })
+    except Exception as e:
+        print(f"Error getting current user: {e}")
+        return jsonify({'authenticated': False, 'user': None, 'error': str(e)})
+
+
+@app.route('/api/my-matches')
+def get_my_matches():
+    """Get current user's saved matches"""
+    try:
+        from auth import get_current_user
+        from supabase_client import get_user_matches
+        
+        user = get_current_user()
+        
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        matches = get_user_matches(user['id'])
+        
+        return jsonify({
+            'matches': matches
+        })
+    except Exception as e:
+        print(f"Error getting user matches: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/save-match/<job_id>', methods=['POST'])
+def save_match_api(job_id):
+    """Save a match to the current user's account"""
+    try:
+        from auth import get_current_user
+        from supabase_client import save_match, upload_player_image, check_match_saved
+        
+        user = get_current_user()
+        
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        # Check if already saved
+        if check_match_saved(job_id, user['id']):
+            return jsonify({'success': True, 'message': 'Match already saved'})
+        
+        # Load analytics from disk
+        job = get_job(job_id)
+        if not job:
+            job = load_job_from_disk(job_id)
+        
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        analytics = job.get('result', {}).get('squash_analytics', {})
+        
+        if not analytics:
+            return jsonify({'error': 'No analytics data found'}), 400
+        
+        # Upload player image to Supabase Storage
+        players_image_url = None
+        result_dir = RESULTS_FOLDER / job_id
+        players_images = list(result_dir.glob("*_players.jpg"))
+        
+        if players_images:
+            players_image_url = upload_player_image(job_id, str(players_images[0]))
+        
+        # Get player names from analytics
+        player1_name = analytics.get('player1', {}).get('name')
+        player2_name = analytics.get('player2', {}).get('name')
+        
+        # Save to Supabase
+        saved_match = save_match(
+            user_id=user['id'],
+            job_id=job_id,
+            filename=job.get('filename', job_id),
+            analytics=analytics,
+            sport=job.get('sport', 'squash'),
+            players_image_url=players_image_url,
+            player1_name=player1_name,
+            player2_name=player2_name
+        )
+        
+        return jsonify({
+            'success': True,
+            'match_id': saved_match.get('id') if saved_match else None
+        })
+        
+    except Exception as e:
+        print(f"Error saving match: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/matches/<match_id>', methods=['DELETE'])
+def delete_match_api(match_id):
+    """Delete a saved match"""
+    try:
+        from auth import get_current_user
+        from supabase_client import delete_match
+        
+        user = get_current_user()
+        
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        success = delete_match(match_id, user['id'])
+        
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Match not found or access denied'}), 404
+            
+    except Exception as e:
+        print(f"Error deleting match: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/check-saved/<job_id>')
+def check_match_saved_api(job_id):
+    """Check if a match is saved for the current user"""
+    try:
+        from auth import get_current_user
+        from supabase_client import check_match_saved
+        
+        user = get_current_user()
+        
+        if not user:
+            return jsonify({'saved': False, 'authenticated': False})
+        
+        is_saved = check_match_saved(job_id, user['id'])
+        
+        return jsonify({
+            'saved': is_saved,
+            'authenticated': True
+        })
+        
+    except Exception as e:
+        print(f"Error checking saved status: {e}")
+        return jsonify({'saved': False, 'error': str(e)})
+
 
 if __name__ == '__main__':
     # Create template directory

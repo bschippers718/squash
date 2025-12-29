@@ -440,8 +440,108 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Auth UI Styles */
+        .top-nav-auth {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .auth-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .auth-btn-login {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        .auth-btn-login:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .auth-btn-signup {
+            background: var(--accent);
+            border: none;
+            color: var(--bg-dark);
+        }
+        .auth-btn-signup:hover {
+            background: #00e6b8;
+        }
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 2px solid var(--accent);
+            cursor: pointer;
+            overflow: hidden;
+        }
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .my-matches-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .my-matches-link:hover {
+            background: rgba(0, 212, 170, 0.1);
+        }
+        .save-match-btn {
+            padding: 8px 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: var(--bg-dark);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+        .save-match-btn:hover {
+            background: #00e6b8;
+        }
+        .save-match-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .save-match-btn.saved {
+            background: var(--bg-elevated);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+        .auth-hidden { display: none !important; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% if clerk_publishable_key %}
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+    {% endif %}
 </head>
 <body>
     <div class="bg-gradient"></div>
@@ -451,7 +551,26 @@
                 <div class="logo-icon"><img src="/static/squash-ball.svg" alt="Squash Ball"></div>
             <div class="logo-text">Squash.AI</div>
             </a>
-            <a href="/" class="new-upload-btn">+ New Analysis</a>
+            <div class="top-nav-auth">
+                <!-- Save Match button (shown when logged in and not yet saved) -->
+                <button id="save-match-btn" class="save-match-btn auth-hidden" onclick="saveMatch()">
+                    <span id="save-btn-icon">💾</span>
+                    <span id="save-btn-text">Save Match</span>
+                </button>
+                <!-- Auth buttons (shown when NOT logged in) -->
+                <div id="auth-buttons" class="auth-hidden">
+                    <button class="auth-btn auth-btn-login" onclick="clerkSignIn()">Sign In</button>
+                    <button class="auth-btn auth-btn-signup" onclick="clerkSignUp()">Sign Up</button>
+                </div>
+                <!-- User menu (shown when logged in) -->
+                <div id="user-menu" class="user-menu auth-hidden">
+                    <a href="/my-matches" class="my-matches-link">My Matches</a>
+                    <div class="user-avatar" onclick="clerkOpenUserProfile()" title="Account">
+                        <img id="user-avatar-img" src="" alt="Profile">
+                    </div>
+                </div>
+                <a href="/" class="new-upload-btn">+ New Analysis</a>
+            </div>
         </header>
 
     <div class="container">
@@ -1818,6 +1937,160 @@
         
         // Initialize
         loadData();
+        
+        // ============================================================================
+        // Clerk Authentication & Save Match
+        // ============================================================================
+        
+        let clerkLoaded = false;
+        let matchSaved = false;
+        
+        async function initClerk() {
+            if (typeof Clerk === 'undefined') {
+                console.log('Clerk not loaded - auth features disabled');
+                return;
+            }
+            
+            try {
+                await Clerk.load();
+                clerkLoaded = true;
+                updateAuthUI();
+                checkIfMatchSaved();
+                
+                Clerk.addListener((event) => {
+                    updateAuthUI();
+                    checkIfMatchSaved();
+                });
+            } catch (err) {
+                console.error('Failed to initialize Clerk:', err);
+            }
+        }
+        
+        function updateAuthUI() {
+            if (!clerkLoaded) return;
+            
+            const authButtons = document.getElementById('auth-buttons');
+            const userMenu = document.getElementById('user-menu');
+            const saveBtn = document.getElementById('save-match-btn');
+            const avatarImg = document.getElementById('user-avatar-img');
+            
+            if (Clerk.user) {
+                authButtons?.classList.add('auth-hidden');
+                userMenu?.classList.remove('auth-hidden');
+                
+                // Show save button if not already saved
+                if (!matchSaved && saveBtn) {
+                    saveBtn.classList.remove('auth-hidden');
+                }
+                
+                if (avatarImg && Clerk.user.imageUrl) {
+                    avatarImg.src = Clerk.user.imageUrl;
+                }
+            } else {
+                authButtons?.classList.remove('auth-hidden');
+                userMenu?.classList.add('auth-hidden');
+                saveBtn?.classList.add('auth-hidden');
+            }
+        }
+        
+        async function checkIfMatchSaved() {
+            if (!clerkLoaded || !Clerk.user) return;
+            
+            try {
+                const token = await Clerk.session.getToken();
+                const response = await fetch(`/api/check-saved/${jobId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.saved) {
+                    matchSaved = true;
+                    updateSaveButton(true);
+                }
+            } catch (err) {
+                console.error('Error checking saved status:', err);
+            }
+        }
+        
+        function updateSaveButton(saved) {
+            const saveBtn = document.getElementById('save-match-btn');
+            const btnIcon = document.getElementById('save-btn-icon');
+            const btnText = document.getElementById('save-btn-text');
+            
+            if (saveBtn) {
+                if (saved) {
+                    saveBtn.classList.add('saved');
+                    saveBtn.disabled = true;
+                    if (btnIcon) btnIcon.textContent = '✓';
+                    if (btnText) btnText.textContent = 'Saved';
+                } else {
+                    saveBtn.classList.remove('saved');
+                    saveBtn.disabled = false;
+                    if (btnIcon) btnIcon.textContent = '💾';
+                    if (btnText) btnText.textContent = 'Save Match';
+                }
+            }
+        }
+        
+        async function saveMatch() {
+            if (!clerkLoaded || !Clerk.user || matchSaved) return;
+            
+            const saveBtn = document.getElementById('save-match-btn');
+            const btnText = document.getElementById('save-btn-text');
+            
+            try {
+                if (saveBtn) saveBtn.disabled = true;
+                if (btnText) btnText.textContent = 'Saving...';
+                
+                const token = await Clerk.session.getToken();
+                const response = await fetch(`/api/save-match/${jobId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    matchSaved = true;
+                    updateSaveButton(true);
+                } else {
+                    throw new Error(data.error || 'Failed to save');
+                }
+            } catch (err) {
+                console.error('Error saving match:', err);
+                alert('Failed to save match. Please try again.');
+                if (saveBtn) saveBtn.disabled = false;
+                if (btnText) btnText.textContent = 'Save Match';
+            }
+        }
+        
+        function clerkSignIn() {
+            if (clerkLoaded && Clerk.openSignIn) {
+                Clerk.openSignIn({});
+            }
+        }
+        
+        function clerkSignUp() {
+            if (clerkLoaded && Clerk.openSignUp) {
+                Clerk.openSignUp({});
+            }
+        }
+        
+        function clerkOpenUserProfile() {
+            if (clerkLoaded && Clerk.openUserProfile) {
+                Clerk.openUserProfile({});
+            }
+        }
+        
+        // Initialize Clerk
+        if (typeof Clerk !== 'undefined') {
+            initClerk();
+        } else {
+            window.addEventListener('load', () => setTimeout(initClerk, 100));
+        }
     </script>
 </body>
 </html>
