@@ -8,7 +8,7 @@ cmds = [
     ". /opt/venv/bin/activate && pip install --upgrade pip",
     ". /opt/venv/bin/activate && pip uninstall -y opencv-python opencv-contrib-python || true",
     ". /opt/venv/bin/activate && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu",
-    ". /opt/venv/bin/activate && pip install flask werkzeug google-generativeai ultralytics opencv-python-headless",
+    ". /opt/venv/bin/activate && pip install flask werkzeug google-generativeai ultralytics opencv-python-headless supabase PyJWT python-dotenv",
     "mkdir -p /app/lib_stub /usr/lib/x86_64-linux-gnu /usr/lib",
     "gcc -shared -fPIC -Wl,-soname,libGL.so.1 -o /app/lib_stub/libGL.so.1 /app/libgl_stub.c -ldl || (echo 'Warning: Stub library compilation failed, trying without soname...' && gcc -shared -fPIC -o /app/lib_stub/libGL.so.1 /app/libgl_stub.c -ldl || echo 'Stub compilation failed')",
     "test -f /app/lib_stub/libGL.so.1 && (ln -sf libGL.so.1 /app/lib_stub/libGL.so && echo 'Stub library and symlink created successfully') || echo 'ERROR: Stub library not created'",
