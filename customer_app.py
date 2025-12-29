@@ -6,9 +6,12 @@ Allows customers to upload videos and track processing status.
 
 import os
 
-# Load environment variables from .env file
-from dotenv import load_dotenv
-load_dotenv()
+# Load environment variables from .env file (optional - for local dev)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed (production uses env vars directly)
 
 # Set YOLO config directory to writable location (for Railway/cloud deployments)
 # This must be set BEFORE importing ultralytics
