@@ -441,14 +441,26 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (!response.ok) throw new Error('Failed to load matches');
-
                 const data = await response.json();
-                matches = data.matches || [];
-                renderMatches();
+                
+                // Even if response is not OK, check if it's just empty matches
+                if (data.matches !== undefined) {
+                    matches = data.matches || [];
+                    renderMatches();
+                } else if (data.error) {
+                    // If there's an error but it might just be no matches
+                    console.log('API returned:', data);
+                    matches = [];
+                    renderMatches(); // Show empty state instead of error
+                } else {
+                    matches = [];
+                    renderMatches();
+                }
             } catch (err) {
                 console.error('Error loading matches:', err);
-                showError('Failed to load matches. Please try again.');
+                // Show empty state instead of error for better UX
+                matches = [];
+                renderMatches();
             }
         }
 
@@ -458,10 +470,12 @@
             if (matches.length === 0) {
                 content.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">🎾</div>
-                        <h3>No saved matches yet</h3>
-                        <p>Upload a video and save the analysis to see it here</p>
-                        <a href="/" class="auth-btn auth-btn-primary">Upload Your First Match</a>
+                        <div class="empty-state-icon">🏸</div>
+                        <h3>Your court is empty!</h3>
+                        <p>Why did the squash player bring a ladder to the match?<br>
+                        <em>Because they wanted to reach new heights in their game!</em> 🪜😄</p>
+                        <p style="margin-top: 16px; color: var(--text-secondary);">Upload a match video and we'll analyze it for you.</p>
+                        <a href="/" class="auth-btn auth-btn-primary" style="margin-top: 8px;">🚀 Analyze Your First Match</a>
                     </div>
                 `;
                 return;
