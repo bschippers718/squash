@@ -23,7 +23,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true && \
     pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir flask werkzeug google-generativeai ultralytics opencv-python-headless
+    pip install --no-cache-dir flask werkzeug google-generativeai ultralytics opencv-python-headless && \
+    pip install --no-cache-dir supabase PyJWT python-dotenv requests
 
 # Copy application code
 COPY . .
