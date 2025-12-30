@@ -175,11 +175,23 @@ def favicon():
     </svg>'''
     return svg, 200, {'Content-Type': 'image/svg+xml'}
 
+@app.route('/debug-env')
+def debug_env():
+    """Debug endpoint to check environment variables"""
+    return jsonify({
+        'CLERK_PUBLISHABLE_KEY': os.environ.get('CLERK_PUBLISHABLE_KEY', 'NOT SET')[:20] + '...' if os.environ.get('CLERK_PUBLISHABLE_KEY') else 'NOT SET',
+        'CLERK_FRONTEND_API': os.environ.get('CLERK_FRONTEND_API', 'NOT SET')[:30] + '...' if os.environ.get('CLERK_FRONTEND_API') else 'NOT SET',
+        'SUPABASE_URL': os.environ.get('SUPABASE_URL', 'NOT SET')[:30] + '...' if os.environ.get('SUPABASE_URL') else 'NOT SET',
+        'all_env_keys': [k for k in os.environ.keys() if 'CLERK' in k or 'SUPABASE' in k]
+    })
+
 @app.route('/')
 def index():
     """Main upload page"""
+    clerk_key = os.environ.get('CLERK_PUBLISHABLE_KEY', '')
+    print(f"[DEBUG] CLERK_PUBLISHABLE_KEY: {'SET' if clerk_key else 'NOT SET'}", flush=True)
     return render_template('upload.html', 
-        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', '')
+        clerk_publishable_key=clerk_key
     )
 
 @app.route('/my-matches')
