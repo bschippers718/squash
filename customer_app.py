@@ -520,7 +520,28 @@ def load_job_from_disk(job_id):
     if not result_dir.exists():
         return None
     
-    # Find the analytics file
+    # Check if this is a combined match first
+    combined_file = result_dir / 'combined_match_analytics.json'
+    if combined_file.exists():
+        try:
+            with open(combined_file, 'r') as f:
+                combined = json.load(f)
+            job = {
+                'id': job_id,
+                'type': 'combined_match',
+                'status': 'completed',
+                'filename': f"Match ({combined.get('total_games', '?')} games)",
+                'sport': combined.get('sport', 'squash'),
+                'result': {'combined_analytics': combined}
+            }
+            with jobs_lock:
+                jobs[job_id] = job
+            return job
+        except Exception as e:
+            print(f"Error loading combined match {job_id}: {e}")
+            return None
+    
+    # Find the analytics file for single games
     analytics_files = list(result_dir.glob("*_squash_analytics.json"))
     compact_files = list(result_dir.glob("*_compact_gemini.json"))
     
@@ -1215,10 +1236,17 @@ def save_match_api(job_id):
         if not job:
             return jsonify({'error': 'Job not found'}), 404
         
-        analytics = job.get('result', {}).get('squash_analytics', {})
+        # Handle both single games (squash_analytics) and combined matches (combined_analytics)
+        result = job.get('result', {})
+        is_combined = job.get('type') == 'combined_match' or job_id.startswith('match_')
+        
+        if is_combined:
+            analytics = result.get('combined_analytics', {})
+        else:
+            analytics = result.get('squash_analytics', {})
         
         if not analytics:
-            return jsonify({'error': 'No analytics data found'}), 400
+            return jsonify({'error': f'No analytics data found (combined={is_combined})'}), 400
         
         # Upload player image to Supabase Storage
         players_image_url = None
@@ -1250,9 +1278,11 @@ def save_match_api(job_id):
         })
         
     except Exception as e:
-        print(f"Error saving match: {e}")
+        print(f"Error saving match: {e}", flush=True)
         import traceback
         traceback.print_exc()
+        # Return detailed error for debugging
+        return jsonify({'error': f'Save failed: {str(e)}', 'details': traceback.format_exc()}), 500
         return jsonify({'error': str(e)}), 500
 
 
