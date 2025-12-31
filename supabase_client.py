@@ -102,11 +102,16 @@ def save_match(
         'duration_seconds': duration_seconds
     }
     
-    # Upsert to handle re-saving
-    result = supabase.table('matches').upsert(
-        match_data,
-        on_conflict='user_id,job_id'
-    ).execute()
+    # Insert (not upsert) - check_match_saved prevents duplicates
+    # Using insert instead of upsert to avoid composite key issues
+    try:
+        result = supabase.table('matches').insert(match_data).execute()
+    except Exception as e:
+        # If duplicate, try to fetch the existing one
+        if 'duplicate' in str(e).lower() or '23505' in str(e):
+            existing = supabase.table('matches').select('*').eq('user_id', user_id).eq('job_id', job_id).execute()
+            return existing.data[0] if existing.data else None
+        raise
     
     return result.data[0] if result.data else None
 
