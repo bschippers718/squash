@@ -185,6 +185,82 @@ def debug_env():
         'all_env_keys': [k for k in os.environ.keys() if 'CLERK' in k or 'SUPABASE' in k]
     })
 
+@app.route('/debug-create-test-match')
+def debug_create_test_match():
+    """Create a test match for debugging save functionality"""
+    import uuid
+    test_job_id = f"test_{uuid.uuid4().hex[:8]}"
+    
+    # Create test analytics
+    test_analytics = {
+        "sport": "squash",
+        "camera_angle": "back",
+        "match_info": {
+            "duration_seconds": 300,
+            "total_frames": 9000,
+            "frames_analyzed": 8000,
+            "fps": 30
+        },
+        "data_quality": {
+            "ball_detection_rate": 12.5,
+            "player_detection_rate": 88.2,
+            "avg_detection_confidence": 82.1,
+            "quality_score": 62.3,
+            "is_reliable": True
+        },
+        "player1": {
+            "name": "Test Player 1",
+            "scramble_score": 105.2,
+            "running_score": 28500.5,
+            "t_dominance": 54.2,
+            "attack_score": 22
+        },
+        "player2": {
+            "name": "Test Player 2", 
+            "scramble_score": 118.7,
+            "running_score": 31200.3,
+            "t_dominance": 45.8,
+            "attack_score": 18
+        },
+        "analysis": {
+            "t_dominance": {"summary": "Test Player 1 controlled the T."},
+            "scramble": {"summary": "Test Player 2 was pushed more."}
+        }
+    }
+    
+    # Create results directory and save files
+    result_dir = RESULTS_FOLDER / test_job_id
+    result_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save analytics JSON
+    import json
+    analytics_path = result_dir / f"{test_job_id}_squash_analytics.json"
+    with open(analytics_path, 'w') as f:
+        json.dump(test_analytics, f, indent=2)
+    
+    # Save compact JSON
+    compact_path = result_dir / f"{test_job_id}_compact_gemini.json"
+    with open(compact_path, 'w') as f:
+        json.dump({"video_name": test_job_id, "fps": 30, "duration_seconds": 300}, f)
+    
+    # Store in memory jobs dict
+    jobs[test_job_id] = {
+        'job_id': test_job_id,
+        'status': 'complete',
+        'filename': 'test_match.mp4',
+        'sport': 'squash',
+        'result': {
+            'squash_analytics': test_analytics
+        }
+    }
+    
+    return jsonify({
+        'success': True,
+        'job_id': test_job_id,
+        'results_url': f'/results/{test_job_id}',
+        'message': f'Test match created. Go to /results/{test_job_id} to test saving.'
+    })
+
 @app.route('/')
 def index():
     """Main upload page"""
