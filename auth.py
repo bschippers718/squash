@@ -46,8 +46,10 @@ def get_clerk_jwks():
                 clerk_frontend_api = f"https://{instance_id}.clerk.accounts.dev"
     
     if not clerk_frontend_api:
+        print("[AUTH] ERROR: CLERK_FRONTEND_API not set and couldn't derive from publishable key", flush=True)
         raise ValueError("CLERK_FRONTEND_API environment variable must be set")
     
+    print(f"[AUTH] Using CLERK_FRONTEND_API: {clerk_frontend_api}", flush=True)
     jwks_url = f"{clerk_frontend_api}/.well-known/jwks.json"
     
     try:
@@ -114,13 +116,15 @@ def verify_clerk_token(token: str) -> Optional[Dict[str, Any]]:
         return payload
         
     except jwt.ExpiredSignatureError:
-        print("Token has expired")
+        print("[AUTH] Token has expired", flush=True)
         return None
     except jwt.InvalidTokenError as e:
-        print(f"Invalid token: {e}")
+        print(f"[AUTH] Invalid token: {e}", flush=True)
         return None
     except Exception as e:
-        print(f"Token verification error: {e}")
+        print(f"[AUTH] Token verification error: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         return None
 
 
@@ -136,11 +140,15 @@ def get_current_user_from_request() -> Optional[Dict[str, Any]]:
     
     if auth_header:
         token = auth_header
+        print(f"[AUTH] Found Authorization header (length: {len(auth_header)})", flush=True)
     else:
         # Try the __session cookie (Clerk's default cookie name)
         token = request.cookies.get('__session')
+        if token:
+            print(f"[AUTH] Found __session cookie (length: {len(token)})", flush=True)
     
     if not token:
+        print("[AUTH] No token found in Authorization header or __session cookie", flush=True)
         return None
     
     # Verify the token
