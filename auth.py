@@ -27,27 +27,34 @@ def get_clerk_jwks():
     if _jwks_cache and (time.time() - _jwks_cache_time) < 3600:
         return _jwks_cache
     
-    # Get Clerk frontend API URL from publishable key
+    # Get Clerk frontend API URL - auto-derive from publishable key
     publishable_key = os.environ.get('CLERK_PUBLISHABLE_KEY', '')
+    clerk_frontend_api = os.environ.get('CLERK_FRONTEND_API', '').strip()
     
-    # Extract the instance ID from the publishable key
-    # Format: pk_test_xxx or pk_live_xxx
-    if publishable_key.startswith('pk_'):
-        # The JWKS URL is based on your Clerk frontend API
-        # You can find this in Clerk Dashboard > API Keys
-        clerk_frontend_api = os.environ.get('CLERK_FRONTEND_API')
-        
-        if not clerk_frontend_api:
-            # Try to construct from publishable key
-            # This is a simplified approach - in production, set CLERK_FRONTEND_API explicitly
+    # Auto-derive Frontend API from publishable key if not explicitly set
+    if not clerk_frontend_api and publishable_key.startswith('pk_'):
+        try:
+            # The publishable key contains base64-encoded frontend API
+            # Format: pk_test_BASE64 or pk_live_BASE64
+            import base64
             parts = publishable_key.split('_')
             if len(parts) >= 3:
-                instance_id = parts[2][:24]  # Get the instance identifier
-                clerk_frontend_api = f"https://{instance_id}.clerk.accounts.dev"
+                encoded_part = parts[2]
+                # Add padding if needed
+                padding = 4 - len(encoded_part) % 4
+                if padding != 4:
+                    encoded_part += '=' * padding
+                decoded = base64.b64decode(encoded_part).decode('utf-8')
+                # Remove trailing $ if present
+                decoded = decoded.rstrip('$')
+                clerk_frontend_api = f"https://{decoded}"
+                print(f"[AUTH] Auto-derived CLERK_FRONTEND_API: {clerk_frontend_api}", flush=True)
+        except Exception as e:
+            print(f"[AUTH] Could not auto-derive frontend API: {e}", flush=True)
     
     if not clerk_frontend_api:
-        print("[AUTH] ERROR: CLERK_FRONTEND_API not set and couldn't derive from publishable key", flush=True)
-        raise ValueError("CLERK_FRONTEND_API environment variable must be set")
+        print("[AUTH] ERROR: Could not determine CLERK_FRONTEND_API", flush=True)
+        raise ValueError("CLERK_FRONTEND_API could not be determined. Set it explicitly or check CLERK_PUBLISHABLE_KEY.")
     
     print(f"[AUTH] Using CLERK_FRONTEND_API: {clerk_frontend_api}", flush=True)
     jwks_url = f"{clerk_frontend_api}/.well-known/jwks.json"
