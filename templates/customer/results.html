@@ -943,6 +943,7 @@
             const p1 = analytics.player1 || {};
             const p2 = analytics.player2 || {};
             const matchInfo = analytics.match_info || {};
+            const dataQuality = analytics.data_quality || {};
             
             // Detect sport
             const sport = jobData.sport || 'squash';
@@ -1551,6 +1552,56 @@
 
                 <!-- Downloads -->
                 ${downloadsHtml}
+
+                <!-- Data Quality Section (Debug) -->
+                <div class="section-card" style="margin-top: 2rem; background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3);">
+                    <h2 class="section-title">🔬 Data Quality (Debug)</h2>
+                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem;">
+                        <div class="stat-item" style="text-align: center;">
+                            <div class="stat-value" style="font-size: 1.5rem; color: ${(dataQuality.player_detection_rate || 0) >= 70 ? '#00d4aa' : (dataQuality.player_detection_rate || 0) >= 50 ? '#ffc107' : '#ff6b6b'};">
+                                ${dataQuality.player_detection_rate?.toFixed(1) ?? 'N/A'}%
+                            </div>
+                            <div class="stat-label">Player Detection</div>
+                        </div>
+                        <div class="stat-item" style="text-align: center;">
+                            <div class="stat-value" style="font-size: 1.5rem; color: ${(dataQuality.ball_detection_rate || 0) >= 20 ? '#00d4aa' : (dataQuality.ball_detection_rate || 0) >= 10 ? '#ffc107' : '#ff6b6b'};">
+                                ${dataQuality.ball_detection_rate?.toFixed(1) ?? 'N/A'}%
+                            </div>
+                            <div class="stat-label">Ball Detection</div>
+                        </div>
+                        <div class="stat-item" style="text-align: center;">
+                            <div class="stat-value" style="font-size: 1.5rem;">
+                                ${dataQuality.avg_detection_confidence?.toFixed(1) ?? 'N/A'}%
+                            </div>
+                            <div class="stat-label">Avg Confidence</div>
+                        </div>
+                        <div class="stat-item" style="text-align: center;">
+                            <div class="stat-value" style="font-size: 1.5rem; color: ${(dataQuality.quality_score || 0) >= 60 ? '#00d4aa' : (dataQuality.quality_score || 0) >= 40 ? '#ffc107' : '#ff6b6b'};">
+                                ${dataQuality.quality_score?.toFixed(1) ?? 'N/A'}%
+                            </div>
+                            <div class="stat-label">Quality Score</div>
+                        </div>
+                        <div class="stat-item" style="text-align: center;">
+                            <div class="stat-value" style="font-size: 1.2rem; color: ${dataQuality.is_reliable ? '#00d4aa' : '#ff6b6b'};">
+                                ${dataQuality.is_reliable ? '✓ Reliable' : '⚠ Unreliable'}
+                            </div>
+                            <div class="stat-label">Reliability</div>
+                        </div>
+                        <div class="stat-item" style="text-align: center;">
+                            <div class="stat-value" style="font-size: 1.2rem;">
+                                ${(matchInfo.frames_analyzed || 0).toLocaleString()} / ${(matchInfo.total_frames || 0).toLocaleString()}
+                            </div>
+                            <div class="stat-label">Frames Analyzed</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+                        <strong>Legend:</strong> 
+                        <span style="color: #00d4aa;">● Good</span> | 
+                        <span style="color: #ffc107;">● Moderate</span> | 
+                        <span style="color: #ff6b6b;">● Poor</span>
+                        <br><small>Player detection >70% = reliable movement metrics. Ball detection >10% = rail metrics available.</small>
+                    </div>
+                </div>
             `;
         }
         
