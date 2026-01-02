@@ -938,7 +938,7 @@
         function renderScoreCard(data) {
             const jobData = data.job || {};
             const result = data.result || {};
-            const analytics = result.squash_analytics || result.analytics || {};
+            const analytics = result.combined_analytics || result.squash_analytics || result.analytics || {};
             const analysis = analytics.analysis || {};
             const p1 = analytics.player1 || {};
             const p2 = analytics.player2 || {};
@@ -1654,7 +1654,7 @@
             document.querySelectorAll('.highlight-p2').forEach(el => el.textContent = p2);
             
             // Get analytics for winner calculations
-            const analytics = analyticsData?.result?.squash_analytics || analyticsData?.result?.analytics || {};
+            const analytics = analyticsData?.result?.combined_analytics || analyticsData?.result?.squash_analytics || analyticsData?.result?.analytics || {};
             const p1Data = analytics.player1 || {};
             const p2Data = analytics.player2 || {};
             

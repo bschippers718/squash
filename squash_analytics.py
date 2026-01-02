@@ -2200,6 +2200,13 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     p1_fatigue_games = 0
     p2_fatigue_games = 0
     
+    # Data quality aggregates
+    total_ball_detection = 0
+    total_player_detection = 0
+    total_confidence = 0
+    total_quality_score = 0
+    quality_game_count = 0
+    
     # Performance decay - compare first half of games to second half
     first_half_games = []
     second_half_games = []
@@ -2228,6 +2235,15 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         total_duration += game_duration
         total_frames += match_info.get('total_frames', 0)
         total_frames_analyzed += match_info.get('frames_analyzed', 0)
+        
+        # Aggregate data quality
+        data_quality = game.get('data_quality', {})
+        if data_quality:
+            total_ball_detection += data_quality.get('ball_detection_rate', 0) * game_duration
+            total_player_detection += data_quality.get('player_detection_rate', 0) * game_duration
+            total_confidence += data_quality.get('avg_detection_confidence', 0) * game_duration
+            total_quality_score += data_quality.get('quality_score', 0) * game_duration
+            quality_game_count += game_duration
         
         # Aggregate player stats (weighted by duration for averages)
         p1_scramble = p1.get('scramble_score', 0)
@@ -2608,6 +2624,13 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         fatigue_winner = 'Even'
         fatigue_summary = f"Both players maintained similar conditioning. Player 1 fatigue: {p1_avg_fatigue:.0f} ({p1_avg_speed_decline:.0f}% decline), Player 2: {p2_avg_fatigue:.0f} ({p2_avg_speed_decline:.0f}% decline)."
     
+    # Calculate average data quality
+    avg_ball_detection = total_ball_detection / quality_game_count if quality_game_count > 0 else 0
+    avg_player_detection = total_player_detection / quality_game_count if quality_game_count > 0 else 0
+    avg_confidence = total_confidence / quality_game_count if quality_game_count > 0 else 0
+    avg_quality_score = total_quality_score / quality_game_count if quality_game_count > 0 else 0
+    is_reliable = avg_ball_detection >= 10 and avg_player_detection >= 70
+    
     return {
         'match_type': 'combined',
         'num_games': num_games,
@@ -2617,6 +2640,13 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'total_frames': total_frames,
             'total_frames_analyzed': total_frames_analyzed,
             'games_played': num_games
+        },
+        'data_quality': {
+            'ball_detection_rate': round(avg_ball_detection, 1),
+            'player_detection_rate': round(avg_player_detection, 1),
+            'avg_detection_confidence': round(avg_confidence, 1),
+            'quality_score': round(avg_quality_score, 1),
+            'is_reliable': is_reliable
         },
         'match_result': {
             'winner': match_winner,
