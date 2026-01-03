@@ -1276,12 +1276,12 @@
             <p class="hero-subtitle">
                 Stop guessing. Start winning. Get professional-level analytics from your match videos in minutes.
             </p>
-            <button type="button" class="hero-cta" onclick="handleHeroCTA()">
+            <a href="#upload" class="hero-cta">
                 Analyze Your Match
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
-            </button>
+            </a>
         </div>
         <div class="scroll-indicator">
             <span></span>
@@ -1557,55 +1557,6 @@
         window.addEventListener('load', animateOnScroll);
 
         // ============================================
-        // Hero CTA Handler
-        // ============================================
-        let heroFileSelected = false;
-        
-        function handleHeroCTA() {
-            // Check auth first
-            if (!clerkLoaded || !Clerk.user) {
-                Clerk.openSignIn({
-                    afterSignInUrl: window.location.href,
-                    afterSignUpUrl: window.location.href
-                });
-                return;
-            }
-            
-            // If files already selected, start the analysis
-            if (heroFileSelected && selectedFiles.length > 0) {
-                submitBtn.click();
-                return;
-            }
-            
-            // If logged in, open file picker directly
-            document.getElementById('fileInput').click();
-        }
-        
-        function updateHeroCTA() {
-            const heroBtn = document.querySelector('.hero-cta');
-            if (!heroBtn) return;
-            
-            if (selectedFiles.length > 0) {
-                heroFileSelected = true;
-                heroBtn.innerHTML = `
-                    Start Analysis
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                `;
-            } else {
-                heroFileSelected = false;
-                heroBtn.innerHTML = `
-                    Analyze Your Match
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                `;
-            }
-        }
-
-        // ============================================
         // Upload Functionality
         // ============================================
         const uploadZone = document.getElementById('uploadZone');
@@ -1672,7 +1623,6 @@
                 </div>
             `).join('');
             updateUI();
-            updateHeroCTA();
         }
 
         function handleFiles(files) {
