@@ -335,38 +335,78 @@
             gap: 8px;
             color: var(--text-muted);
             font-size: 0.8rem;
-            animation: bounce 2s ease-in-out infinite;
         }
 
-        .scroll-indicator span {
-            width: 24px;
-            height: 40px;
+        .scroll-indicator .court {
+            width: 50px;
+            height: 70px;
             border: 2px solid var(--text-muted);
-            border-radius: 12px;
+            border-radius: 8px;
             position: relative;
+            overflow: hidden;
         }
 
-        .scroll-indicator span::after {
+        /* Court T-line */
+        .scroll-indicator .court::before {
             content: '';
             position: absolute;
-            top: 8px;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--text-muted);
+            opacity: 0.3;
+        }
+
+        /* Court center line */
+        .scroll-indicator .court::after {
+            content: '';
+            position: absolute;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            width: 4px;
+            width: 1px;
+            height: 50%;
+            background: var(--text-muted);
+            opacity: 0.3;
+        }
+
+        .scroll-indicator .ball {
+            position: absolute;
+            width: 8px;
             height: 8px;
             background: var(--primary);
-            border-radius: 2px;
-            animation: scrollDot 2s ease-in-out infinite;
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--primary-glow);
+            animation: squashRally 3s ease-in-out infinite;
         }
 
-        @keyframes bounce {
-            0%, 100% { transform: translateX(-50%) translateY(0); }
-            50% { transform: translateX(-50%) translateY(8px); }
-        }
-
-        @keyframes scrollDot {
-            0%, 100% { opacity: 1; top: 8px; }
-            50% { opacity: 0.5; top: 20px; }
+        /* Squash rally pattern: boast-rail-boast-rail */
+        @keyframes squashRally {
+            /* Start front-left, ready to boast */
+            0% { 
+                left: 8px; 
+                bottom: 8px;
+            }
+            /* Boast: diagonal to back-right */
+            25% { 
+                left: 36px; 
+                bottom: 54px;
+            }
+            /* Rail: straight down to front-right */
+            50% { 
+                left: 36px; 
+                bottom: 8px;
+            }
+            /* Boast: diagonal to back-left */
+            75% { 
+                left: 8px; 
+                bottom: 54px;
+            }
+            /* Rail: straight down to front-left (back to start) */
+            100% { 
+                left: 8px; 
+                bottom: 8px;
+            }
         }
 
         /* ============================================
@@ -1803,7 +1843,9 @@
             </a>
         </div>
         <div class="scroll-indicator">
-            <span></span>
+            <div class="court">
+                <div class="ball"></div>
+            </div>
         </div>
     </section>
 

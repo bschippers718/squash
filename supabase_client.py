@@ -84,11 +84,13 @@ def save_match(
     """
     supabase = get_supabase_client()
     
-    # Extract duration from analytics
+    # Extract duration from analytics (convert to int for database)
     duration_seconds = None
     if analytics:
         match_info = analytics.get('match_info', {})
-        duration_seconds = match_info.get('duration_seconds')
+        duration_val = match_info.get('duration_seconds')
+        if duration_val is not None:
+            duration_seconds = int(duration_val)
     
     match_data = {
         'user_id': user_id,
