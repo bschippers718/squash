@@ -185,6 +185,38 @@ def debug_env():
         'all_env_keys': [k for k in os.environ.keys() if 'CLERK' in k or 'SUPABASE' in k]
     })
 
+@app.route('/debug-lookup-match/<job_id>')
+def debug_lookup_match(job_id):
+    """Debug endpoint to check if a match exists in Supabase"""
+    try:
+        from supabase_client import get_match_by_job_id
+        match = get_match_by_job_id(job_id)
+        
+        if match:
+            # Don't return full analytics (too big), just metadata
+            return jsonify({
+                'found': True,
+                'job_id': match.get('job_id'),
+                'user_id': match.get('user_id'),
+                'filename': match.get('filename'),
+                'sport': match.get('sport'),
+                'created_at': match.get('created_at'),
+                'has_analytics': bool(match.get('analytics')),
+                'analytics_keys': list(match.get('analytics', {}).keys()) if match.get('analytics') else [],
+                'players_image_url': match.get('players_image_url')
+            })
+        else:
+            return jsonify({
+                'found': False,
+                'job_id': job_id,
+                'message': 'Match not found in Supabase. Was "Save Match" clicked while logged in?'
+            })
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'job_id': job_id
+        }), 500
+
 @app.route('/debug-create-test-match')
 def debug_create_test_match():
     """Create a test match for debugging save functionality"""
@@ -671,24 +703,82 @@ def get_results_api(job_id):
     """API endpoint to get results data for a job"""
     # Check if it's a combined match
     if job_id.startswith('match_'):
+        combined = None
+        
+        # First try to load from disk
         match_dir = RESULTS_FOLDER / job_id
         if match_dir.exists():
             combined_file = match_dir / 'combined_match_analytics.json'
             if combined_file.exists():
                 with open(combined_file, 'r') as f:
                     combined = json.load(f)
-                return jsonify({
-                    'job': {
-                        'id': job_id,
-                        'type': 'combined_match',
-                        'status': 'completed',
-                        'sport': combined.get('sport', 'squash')
-                    },
-                    'result': {
-                        'squash_analytics': combined
-                    }
-                })
-        return jsonify({'error': 'Match not found'}), 404
+        
+        # If not on disk, try Supabase
+        if not combined:
+            try:
+                from supabase_client import get_match_by_job_id
+                match = get_match_by_job_id(job_id)
+                if match and match.get('analytics'):
+                    combined = match.get('analytics')
+                    print(f"[API] Loaded match {job_id} from Supabase")
+            except Exception as e:
+                print(f"[API] Error loading match {job_id} from Supabase: {e}")
+        
+        if not combined:
+            return jsonify({'error': 'Match not found'}), 404
+        
+        # Backfill data_quality if missing (for older combined matches)
+        if 'data_quality' not in combined:
+            game_jobs = combined.get('game_jobs', [])
+            total_player = 0
+            total_conf = 0
+            total_duration = 0
+            
+            for game_info in game_jobs:
+                game_job_id = game_info.get('job_id', '')
+                if game_job_id:
+                    game_dir = RESULTS_FOLDER / game_job_id
+                    analytics_files = list(game_dir.glob('*_squash_analytics.json'))
+                    if analytics_files:
+                        try:
+                            with open(analytics_files[0], 'r') as gf:
+                                game_analytics = json.load(gf)
+                            dq = game_analytics.get('data_quality', {})
+                            duration = game_analytics.get('match_info', {}).get('duration_seconds', 1)
+                            total_player += dq.get('player_detection_rate', 0) * duration
+                            total_conf += dq.get('avg_detection_confidence', 0) * duration
+                            total_duration += duration
+                        except Exception as e:
+                            print(f"Error loading game {game_job_id} for data_quality: {e}")
+            
+            if total_duration > 0:
+                player_rate = total_player / total_duration
+                combined['data_quality'] = {
+                    'player_detection_rate': round(player_rate, 1),
+                    'avg_detection_confidence': round(total_conf / total_duration, 1),
+                    'quality_score': round(player_rate, 1),  # Based on player detection only
+                    'is_reliable': player_rate >= 70
+                }
+            else:
+                # Use defaults if no game data available for backfill
+                combined['data_quality'] = {
+                    'player_detection_rate': 0,
+                    'avg_detection_confidence': 0,
+                    'quality_score': 0,
+                    'is_reliable': False
+                }
+        
+        return jsonify({
+            'job': {
+                'id': job_id,
+                'type': 'combined_match',
+                'status': 'completed',
+                'sport': combined.get('sport', 'squash')
+            },
+            'result': {
+                'squash_analytics': combined
+            }
+        })
     
     # Single game
     job = get_job(job_id)

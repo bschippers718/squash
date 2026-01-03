@@ -1522,9 +1522,9 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
     all_confidences = player1_stats['confidences'] + player2_stats['confidences']
     avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0
     
-    # Overall quality score
-    quality_score = (ball_detection_rate * 0.4 + player_detection_rate * 0.6) * 100
-    is_reliable = ball_detection_rate >= 0.10 and player_detection_rate >= 0.70
+    # Overall quality score (based on player detection only - ball detection coming soon)
+    quality_score = player_detection_rate * 100
+    is_reliable = player_detection_rate >= 0.70
     
     # Analyze tight rails (only for sports with walls)
     try:
@@ -1591,7 +1591,6 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             't_position': t_position
         },
         'data_quality': {
-            'ball_detection_rate': round(ball_detection_rate * 100, 1),
             'player_detection_rate': round(player_detection_rate * 100, 1),
             'avg_detection_confidence': round(avg_confidence * 100, 1),
             'quality_score': round(quality_score, 1),
@@ -2200,11 +2199,9 @@ def combine_match_analytics(game_analytics_list, game_names=None):
     p1_fatigue_games = 0
     p2_fatigue_games = 0
     
-    # Data quality aggregates
-    total_ball_detection = 0
+    # Data quality aggregates (player detection only - ball detection coming soon)
     total_player_detection = 0
     total_confidence = 0
-    total_quality_score = 0
     quality_game_count = 0
     
     # Performance decay - compare first half of games to second half
@@ -2236,13 +2233,11 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         total_frames += match_info.get('total_frames', 0)
         total_frames_analyzed += match_info.get('frames_analyzed', 0)
         
-        # Aggregate data quality
+        # Aggregate data quality (player detection only)
         data_quality = game.get('data_quality', {})
         if data_quality:
-            total_ball_detection += data_quality.get('ball_detection_rate', 0) * game_duration
             total_player_detection += data_quality.get('player_detection_rate', 0) * game_duration
             total_confidence += data_quality.get('avg_detection_confidence', 0) * game_duration
-            total_quality_score += data_quality.get('quality_score', 0) * game_duration
             quality_game_count += game_duration
         
         # Aggregate player stats (weighted by duration for averages)
@@ -2624,12 +2619,10 @@ def combine_match_analytics(game_analytics_list, game_names=None):
         fatigue_winner = 'Even'
         fatigue_summary = f"Both players maintained similar conditioning. Player 1 fatigue: {p1_avg_fatigue:.0f} ({p1_avg_speed_decline:.0f}% decline), Player 2: {p2_avg_fatigue:.0f} ({p2_avg_speed_decline:.0f}% decline)."
     
-    # Calculate average data quality
-    avg_ball_detection = total_ball_detection / quality_game_count if quality_game_count > 0 else 0
+    # Calculate average data quality (player detection only)
     avg_player_detection = total_player_detection / quality_game_count if quality_game_count > 0 else 0
     avg_confidence = total_confidence / quality_game_count if quality_game_count > 0 else 0
-    avg_quality_score = total_quality_score / quality_game_count if quality_game_count > 0 else 0
-    is_reliable = avg_ball_detection >= 10 and avg_player_detection >= 70
+    is_reliable = avg_player_detection >= 70
     
     return {
         'match_type': 'combined',
@@ -2642,10 +2635,9 @@ def combine_match_analytics(game_analytics_list, game_names=None):
             'games_played': num_games
         },
         'data_quality': {
-            'ball_detection_rate': round(avg_ball_detection, 1),
             'player_detection_rate': round(avg_player_detection, 1),
             'avg_detection_confidence': round(avg_confidence, 1),
-            'quality_score': round(avg_quality_score, 1),
+            'quality_score': round(avg_player_detection, 1),  # Based on player detection
             'is_reliable': is_reliable
         },
         'match_result': {
