@@ -405,6 +405,10 @@ def get_recent_jobs():
             for job_dir in dirs[:15]:  # Limit to 15 most recent
                 if not job_dir.is_dir():
                     continue
+                
+                # Skip match_ directories (legacy combined matches)
+                if job_dir.name.startswith('match_'):
+                    continue
                     
                 job_id = job_dir.name
                 job_info = {
@@ -412,75 +416,42 @@ def get_recent_jobs():
                     'created_at': datetime.fromtimestamp(job_dir.stat().st_mtime).isoformat()
                 }
                 
-                # Check if it's a combined match
-                combined_file = job_dir / 'combined_match_analytics.json'
-                if combined_file.exists():
+                # Look for analytics file
+                analytics_files = list(job_dir.glob('*_squash_analytics.json'))
+                if analytics_files:
                     try:
-                        with open(combined_file, 'r') as f:
-                            combined_data = json.load(f)
-                        job_info['type'] = 'combined_match'
-                        job_info['name'] = f"Match ({combined_data.get('total_games', '?')} games)"
-                        job_info['duration'] = combined_data.get('total_duration_seconds', 0)
-                        job_info['sport'] = combined_data.get('sport', 'squash')
+                        with open(analytics_files[0], 'r') as f:
+                            analytics = json.load(f)
+                        # Extract video name from filename
+                        video_name = analytics_files[0].stem.replace('_squash_analytics', '')
+                        job_info['name'] = video_name
+                        job_info['filename'] = video_name
+                        job_info['duration'] = analytics.get('match_info', {}).get('duration_seconds', 0)
+                        job_info['sport'] = analytics.get('sport', 'squash')
                         
-                        # Add highlight data for combined match
-                        p1 = combined_data.get('player1', {})
-                        p2 = combined_data.get('player2', {})
+                        # Add highlight data
+                        p1 = analytics.get('player1', {})
+                        p2 = analytics.get('player2', {})
                         
-                        # Calculate match-level totals (not player-specific since players aren't named yet)
-                        total_distance = (p1.get('total_running_score', 0) or 0) + (p2.get('total_running_score', 0) or 0)
-                        total_attacks = (p1.get('total_attack_score', 0) or 0) + (p2.get('total_attack_score', 0) or 0)
-                        total_duration = combined_data.get('total_duration_seconds', 0)
+                        total_distance = (p1.get('running_score', 0) or 0) + (p2.get('running_score', 0) or 0)
+                        total_attacks = (p1.get('attack_score', 0) or 0) + (p2.get('attack_score', 0) or 0)
+                        total_duration = analytics.get('match_info', {}).get('duration_seconds', 0)
                         
                         job_info['highlight'] = {
                             'total_distance': round(total_distance * 0.0334, 1),  # Convert pixels to feet
                             'total_attacks': total_attacks,
-                            'total_duration': total_duration,
-                            'games': combined_data.get('total_games', 0)
+                            'total_duration': total_duration
                         }
                     except:
-                        job_info['type'] = 'combined_match'
-                        job_info['name'] = 'Combined Match'
+                        job_info['name'] = job_id
                 else:
-                    # Single game - look for analytics file
-                    analytics_files = list(job_dir.glob('*_squash_analytics.json'))
-                    if analytics_files:
-                        try:
-                            with open(analytics_files[0], 'r') as f:
-                                analytics = json.load(f)
-                            job_info['type'] = 'single_game'
-                            # Extract video name from filename
-                            video_name = analytics_files[0].stem.replace('_squash_analytics', '')
-                            job_info['name'] = video_name
-                            job_info['filename'] = video_name
-                            job_info['duration'] = analytics.get('match_info', {}).get('duration_seconds', 0)
-                            job_info['sport'] = analytics.get('sport', 'squash')
-                            
-                            # Add highlight data - match-level totals (not player-specific since players aren't named yet)
-                            p1 = analytics.get('player1', {})
-                            p2 = analytics.get('player2', {})
-                            
-                            total_distance = (p1.get('running_score', 0) or 0) + (p2.get('running_score', 0) or 0)
-                            total_attacks = (p1.get('attack_score', 0) or 0) + (p2.get('attack_score', 0) or 0)
-                            total_duration = analytics.get('match_info', {}).get('duration_seconds', 0)
-                            
-                            job_info['highlight'] = {
-                                'total_distance': round(total_distance * 0.0334, 1),  # Convert pixels to feet
-                                'total_attacks': total_attacks,
-                                'total_duration': total_duration
-                            }
-                        except:
-                            job_info['type'] = 'single_game'
-                            job_info['name'] = job_id
+                    # Check if there's any video file to get the name
+                    video_files = list(job_dir.glob('*_annotated.mp4'))
+                    if video_files:
+                        video_name = video_files[0].stem.replace('_annotated', '')
+                        job_info['name'] = video_name
                     else:
-                        # Check if there's any video file to get the name
-                        video_files = list(job_dir.glob('*_annotated.mp4'))
-                        if video_files:
-                            video_name = video_files[0].stem.replace('_annotated', '')
-                            job_info['type'] = 'single_game'
-                            job_info['name'] = video_name
-                        else:
-                            continue  # Skip if no recognizable files
+                        continue  # Skip if no recognizable files
                 
                 recent_jobs.append(job_info)
         
@@ -552,28 +523,7 @@ def load_job_from_disk(job_id):
     if not result_dir.exists():
         return None
     
-    # Check if this is a combined match first
-    combined_file = result_dir / 'combined_match_analytics.json'
-    if combined_file.exists():
-        try:
-            with open(combined_file, 'r') as f:
-                combined = json.load(f)
-            job = {
-                'id': job_id,
-                'type': 'combined_match',
-                'status': 'completed',
-                'filename': f"Match ({combined.get('total_games', '?')} games)",
-                'sport': combined.get('sport', 'squash'),
-                'result': {'combined_analytics': combined}
-            }
-            with jobs_lock:
-                jobs[job_id] = job
-            return job
-        except Exception as e:
-            print(f"Error loading combined match {job_id}: {e}")
-            return None
-    
-    # Find the analytics file for single games
+    # Find the analytics file
     analytics_files = list(result_dir.glob("*_squash_analytics.json"))
     compact_files = list(result_dir.glob("*_compact_gemini.json"))
     
@@ -701,86 +651,6 @@ def list_jobs():
 @app.route('/api/results/<job_id>')
 def get_results_api(job_id):
     """API endpoint to get results data for a job"""
-    # Check if it's a combined match
-    if job_id.startswith('match_'):
-        combined = None
-        
-        # First try to load from disk
-        match_dir = RESULTS_FOLDER / job_id
-        if match_dir.exists():
-            combined_file = match_dir / 'combined_match_analytics.json'
-            if combined_file.exists():
-                with open(combined_file, 'r') as f:
-                    combined = json.load(f)
-        
-        # If not on disk, try Supabase
-        if not combined:
-            try:
-                from supabase_client import get_match_by_job_id
-                match = get_match_by_job_id(job_id)
-                if match and match.get('analytics'):
-                    combined = match.get('analytics')
-                    print(f"[API] Loaded match {job_id} from Supabase")
-            except Exception as e:
-                print(f"[API] Error loading match {job_id} from Supabase: {e}")
-        
-        if not combined:
-            return jsonify({'error': 'Match not found'}), 404
-        
-        # Backfill data_quality if missing (for older combined matches)
-        if 'data_quality' not in combined:
-            game_jobs = combined.get('game_jobs', [])
-            total_player = 0
-            total_conf = 0
-            total_duration = 0
-            
-            for game_info in game_jobs:
-                game_job_id = game_info.get('job_id', '')
-                if game_job_id:
-                    game_dir = RESULTS_FOLDER / game_job_id
-                    analytics_files = list(game_dir.glob('*_squash_analytics.json'))
-                    if analytics_files:
-                        try:
-                            with open(analytics_files[0], 'r') as gf:
-                                game_analytics = json.load(gf)
-                            dq = game_analytics.get('data_quality', {})
-                            duration = game_analytics.get('match_info', {}).get('duration_seconds', 1)
-                            total_player += dq.get('player_detection_rate', 0) * duration
-                            total_conf += dq.get('avg_detection_confidence', 0) * duration
-                            total_duration += duration
-                        except Exception as e:
-                            print(f"Error loading game {game_job_id} for data_quality: {e}")
-            
-            if total_duration > 0:
-                player_rate = total_player / total_duration
-                combined['data_quality'] = {
-                    'player_detection_rate': round(player_rate, 1),
-                    'avg_detection_confidence': round(total_conf / total_duration, 1),
-                    'quality_score': round(player_rate, 1),  # Based on player detection only
-                    'is_reliable': player_rate >= 70
-                }
-            else:
-                # Use defaults if no game data available for backfill
-                combined['data_quality'] = {
-                    'player_detection_rate': 0,
-                    'avg_detection_confidence': 0,
-                    'quality_score': 0,
-                    'is_reliable': False
-                }
-        
-        return jsonify({
-            'job': {
-                'id': job_id,
-                'type': 'combined_match',
-                'status': 'completed',
-                'sport': combined.get('sport', 'squash')
-            },
-            'result': {
-                'squash_analytics': combined
-            }
-        })
-    
-    # Single game
     job = get_job(job_id)
     if not job:
         job = load_job_from_disk(job_id)
@@ -827,22 +697,7 @@ def chat_about_match(job_id):
     
     # If not in memory, try to load from disk
     if not job:
-        if job_id.startswith('match_'):
-            # Load combined match from disk
-            match_dir = RESULTS_FOLDER / job_id
-            if match_dir.exists():
-                combined_file = match_dir / 'combined_match_analytics.json'
-                if combined_file.exists():
-                    with open(combined_file, 'r') as f:
-                        combined = json.load(f)
-                    job = {
-                        'id': job_id,
-                        'type': 'combined_match',
-                        'status': 'completed',
-                        'result': {'combined_analytics': combined}
-                    }
-        else:
-            job = load_job_from_disk(job_id)
+        job = load_job_from_disk(job_id)
     
     if not job:
         return jsonify({'error': 'Job not found'}), 404
@@ -857,14 +712,9 @@ def chat_about_match(job_id):
     if not user_message:
         return jsonify({'error': 'No message provided'}), 400
     
-    # Get analytics data - handle both single game and combined match
+    # Get analytics data
     result = job.get('result', {})
-    is_combined = job.get('type') == 'combined_match' or job_id.startswith('match_')
-    
-    if is_combined:
-        analytics = result.get('combined_analytics', {})
-    else:
-        analytics = result.get('squash_analytics', {})
+    analytics = result.get('squash_analytics', {})
     
     if not analytics or analytics.get('error'):
         return jsonify({'error': 'No analytics data available'}), 400
@@ -884,51 +734,8 @@ def chat_about_match(job_id):
             p2 = analytics.get('player2', {})
             analysis = analytics.get('analysis', {})
             
-            if is_combined:
-                # Build context for combined match
-                match_info = analytics.get('match_info', {})
-                match_result = analytics.get('match_result', {})
-                zone = analytics.get('zone_analysis', {})
-                decay = analytics.get('performance_decay', {})
-                
-                context = f"""You are a squash match analyst assistant. Here is the COMBINED MATCH data across {analytics.get('num_games', 0)} games:
-
-Match Result: {match_result.get('winner', 'Unknown')} wins {match_result.get('score', 'N/A')}
-Total Duration: {match_info.get('total_duration_formatted', 'N/A')}
-Games Played: {match_info.get('games_played', 0)}
-
-{p1_name} Stats:
-- Games Won: {p1.get('games_won', 0)}
-- Avg T-Dominance: {p1.get('avg_t_dominance', 0)}%
-- Avg Scramble Score: {p1.get('avg_scramble_score', 0)} px
-- Total Running Score: {p1.get('total_running_score', 0)} px
-- Total Attacks: {p1.get('total_attack_score', 0)}
-- Avg Rail Distance: {p1.get('avg_rail_distance', 0)} px
-- Performance Trend: {p1.get('t_dominance_trend', 0):.1f}% change
-
-{p2_name} Stats:
-- Games Won: {p2.get('games_won', 0)}
-- Avg T-Dominance: {p2.get('avg_t_dominance', 0)}%
-- Avg Scramble Score: {p2.get('avg_scramble_score', 0)} px
-- Total Running Score: {p2.get('total_running_score', 0)} px
-- Total Attacks: {p2.get('total_attack_score', 0)}
-- Avg Rail Distance: {p2.get('avg_rail_distance', 0)} px
-- Performance Trend: {p2.get('t_dominance_trend', 0):.1f}% change
-
-Zone Analysis:
-- {p1_name} Front/Mid/Back: {zone.get('player1', {}).get('aggregate', {}).get('front_court', 0)}% / {zone.get('player1', {}).get('aggregate', {}).get('mid_court', 0)}% / {zone.get('player1', {}).get('aggregate', {}).get('back_court', 0)}%
-- {p2_name} Front/Mid/Back: {zone.get('player2', {}).get('aggregate', {}).get('front_court', 0)}% / {zone.get('player2', {}).get('aggregate', {}).get('mid_court', 0)}% / {zone.get('player2', {}).get('aggregate', {}).get('back_court', 0)}%
-
-Performance Decay Analysis: {decay.get('analysis', 'N/A')}
-
-Match Summary: {analysis.get('match_summary', 'N/A')}
-
-Answer the user's question about this match. Be specific and reference the data when relevant. Keep responses concise but informative.
-
-User Question: {user_message}"""
-            else:
-                # Build context for single game
-                context = f"""You are a squash match analyst assistant. Here is the match data:
+            # Build context for the match
+            context = f"""You are a squash match analyst assistant. Here is the match data:
 
 Match Duration: {analytics.get('match_info', {}).get('duration_seconds', 0):.1f} seconds
 Frames Analyzed: {analytics.get('match_info', {}).get('frames_analyzed', 0)}
@@ -969,13 +776,13 @@ User Question: {user_message}"""
         print(f"Gemini API error: {e}")
     
     # Fallback: Generate response from analytics data
-    response = generate_fallback_response(user_message, analytics, player_names, is_combined)
+    response = generate_fallback_response(user_message, analytics, player_names)
     return jsonify({
         'response': response,
         'source': 'local'
     })
 
-def generate_fallback_response(question, analytics, player_names, is_combined=False):
+def generate_fallback_response(question, analytics, player_names):
     """Generate a response without LLM API"""
     question_lower = question.lower()
     p1_name = player_names.get('player1', 'Player 1')
@@ -996,16 +803,10 @@ def generate_fallback_response(question, analytics, player_names, is_combined=Fa
     
     # Check for common questions
     if 'win' in question_lower or 'better' in question_lower or 'ahead' in question_lower:
-        if is_combined:
-            match_result = analytics.get('match_result', {})
-            winner = match_result.get('winner', 'Unknown')
-            score = match_result.get('score', '')
-            return f"**{winner}** won the match **{score}** based on T-control across all games. {p1_name} had avg T-dominance of {p1_t_dom}% vs {p2_name}'s {p2_t_dom}%."
+        if p1_t_dom > p2_t_dom:
+            return f"Based on the analytics, {p1_name} appears to have the advantage with {p1_t_dom}% T-dominance compared to {p2_name}'s {p2_t_dom}%. {p1_name} is controlling the center of the court more effectively."
         else:
-            if p1_t_dom > p2_t_dom:
-                return f"Based on the analytics, {p1_name} appears to have the advantage with {p1_t_dom}% T-dominance compared to {p2_name}'s {p2_t_dom}%. {p1_name} is controlling the center of the court more effectively."
-            else:
-                return f"Based on the analytics, {p2_name} appears to have the advantage with {p2_t_dom}% T-dominance compared to {p1_name}'s {p1_t_dom}%. {p2_name} is controlling the center of the court more effectively."
+            return f"Based on the analytics, {p2_name} appears to have the advantage with {p2_t_dom}% T-dominance compared to {p1_name}'s {p1_t_dom}%. {p2_name} is controlling the center of the court more effectively."
     
     if 't-dom' in question_lower or 't dom' in question_lower or 'center' in question_lower or 'control' in question_lower:
         return f"T-Dominance shows who controls the center court. {p1_name}: {p1_t_dom}%, {p2_name}: {p2_t_dom}%. {analysis.get('t_dominance', {}).get('summary', '')}"
@@ -1037,19 +838,7 @@ def generate_fallback_response(question, analytics, player_names, is_combined=Fa
         return f"Performance Analysis: {decay.get('analysis', 'No decay data available.')}"
     
     # Default summary
-    if is_combined:
-        match_result = analytics.get('match_result', {})
-        return f"""**Match Summary ({analytics.get('num_games', 0)} games)**:
-
-Winner: **{match_result.get('winner', 'Unknown')}** ({match_result.get('score', '')})
-
-**{p1_name}**: Avg T-Dom {p1_t_dom}%, Attacks {p1_attacks}, Games Won {p1.get('games_won', 0)}
-
-**{p2_name}**: Avg T-Dom {p2_t_dom}%, Attacks {p2_attacks}, Games Won {p2.get('games_won', 0)}
-
-Try asking about specific metrics like "Who controlled the T better?", "Zone analysis?", or "Performance decay?" """
-    else:
-        return f"""Here's a summary of the match:
+    return f"""Here's a summary of the match:
 
 **{p1_name}**: T-Dom {p1_t_dom}%, Attack {p1_attacks}, Scramble {p1_scramble:.0f} px
 
@@ -1079,176 +868,11 @@ def update_player_names(job_id):
     return jsonify({'success': True})
 
 
-@app.route('/api/combine-match', methods=['POST'])
-def combine_match():
-    """Combine multiple game analyses into a single match"""
-    from squash_analytics import combine_match_analytics
-    
-    data = request.get_json()
-    job_ids = data.get('job_ids', [])
-    game_names = data.get('game_names', None)
-    
-    if not job_ids or len(job_ids) < 1:
-        return jsonify({'error': 'At least 1 game job ID required'}), 400
-    
-    # Load analytics for each game
-    game_analytics = []
-    game_info = []
-    
-    for job_id in job_ids:
-        job = get_job(job_id)
-        if not job:
-            job = load_job_from_disk(job_id)
-        
-        if not job:
-            return jsonify({'error': f'Job {job_id} not found'}), 404
-        
-        if job.get('status') != 'completed':
-            return jsonify({'error': f'Job {job_id} not yet complete'}), 400
-        
-        analytics = job.get('result', {}).get('squash_analytics')
-        if not analytics:
-            return jsonify({'error': f'No analytics for job {job_id}'}), 400
-        
-        game_analytics.append(analytics)
-        
-        # Get video name for file references
-        result = job.get('result', {})
-        video_name = result.get('video_name', job.get('filename', job_id))
-        
-        game_info.append({
-            'job_id': job_id,
-            'filename': job.get('filename', job_id),
-            'video_name': video_name
-        })
-    
-    # Generate default game names if not provided
-    if not game_names:
-        game_names = [f"Game {i+1}" for i in range(len(job_ids))]
-    
-    # Combine analytics
-    combined = combine_match_analytics(game_analytics, game_names)
-    
-    # Add game job references to combined analytics
-    combined['game_jobs'] = game_info
-    
-    # Create a new "match" job
-    match_id = 'match_' + '_'.join([jid[:4] for jid in job_ids])
-    
-    # Save combined analytics
-    match_dir = RESULTS_FOLDER / match_id
-    match_dir.mkdir(exist_ok=True)
-    
-    combined_file = match_dir / 'combined_match_analytics.json'
-    with open(combined_file, 'w') as f:
-        json.dump(combined, f, indent=2)
-    
-    # Store the combined match info
-    match_job = {
-        'id': match_id,
-        'type': 'combined_match',
-        'game_jobs': game_info,
-        'job_ids': job_ids,
-        'status': 'completed',
-        'progress': 100,
-        'message': 'Match combined successfully',
-        'result': {
-            'success': True,
-            'combined_analytics': combined
-        },
-        'created_at': datetime.now().isoformat()
-    }
-    
-    with jobs_lock:
-        jobs[match_id] = match_job
-    
-    return jsonify({
-        'success': True,
-        'match_id': match_id,
-        'combined_analytics': combined
-    })
-
-
 @app.route('/match/<match_id>')
-def match_results_page(match_id):
-    """Combined match results page - uses unified results template"""
-    job = get_job(match_id)
-    
-    if not job:
-        # Try to load from disk
-        match_dir = RESULTS_FOLDER / match_id
-        if match_dir.exists():
-            combined_file = match_dir / 'combined_match_analytics.json'
-            if combined_file.exists():
-                with open(combined_file, 'r') as f:
-                    combined = json.load(f)
-                
-                # Reconstruct game_jobs if missing (for older matches)
-                if 'game_jobs' not in combined or not combined['game_jobs']:
-                    if match_id.startswith('match_'):
-                        prefixes = match_id.replace('match_', '').split('_')
-                        game_jobs = []
-                        for prefix in prefixes:
-                            # Find directories that start with this prefix
-                            for result_dir in RESULTS_FOLDER.iterdir():
-                                if result_dir.is_dir() and result_dir.name.startswith(prefix) and not result_dir.name.startswith('match_'):
-                                    # Try to find a players.jpg file
-                                    for file in result_dir.glob('*_players.jpg'):
-                                        video_name = file.stem.replace('_players', '').replace(f'{result_dir.name}_', '')
-                                        game_jobs.append({
-                                            'job_id': result_dir.name,
-                                            'filename': video_name,
-                                            'video_name': video_name
-                                        })
-                                        break
-                                    if game_jobs:  # Found at least one, break to next prefix
-                                        break
-                        if game_jobs:
-                            combined['game_jobs'] = game_jobs
-                
-                job = {
-                    'id': match_id,
-                    'type': 'combined_match',
-                    'status': 'completed',
-                    'result': {'combined_analytics': combined}
-                }
-                # Store in memory for future requests
-                with jobs_lock:
-                    jobs[match_id] = job
-    
-    if not job:
-        return "Match not found", 404
-    
-    # Get metadata for OG tags (social sharing previews)
-    og_title = "Match Analysis"
-    og_image = None
-    
-    # Try to get match name and player image from combined analytics or first game
-    if job.get('type') == 'combined_match':
-        combined = job.get('result', {}).get('combined_analytics', {})
-        game_jobs = combined.get('game_jobs', [])
-        if game_jobs:
-            # Use first game's info
-            first_game = game_jobs[0]
-            first_job_id = first_game.get('job_id', '')
-            video_name = first_game.get('video_name', first_game.get('filename', ''))
-            og_title = video_name.replace('_', ' ')
-            
-            # Find players image from first game
-            first_game_dir = RESULTS_FOLDER / first_job_id
-            if first_game_dir.exists():
-                players_images = list(first_game_dir.glob("*_players.jpg"))
-                if players_images:
-                    og_image = f"/results/{first_job_id}/files/{players_images[0].name}"
-    
-    # Use unified results template - it auto-detects single vs multi-game
-    return render_template('results.html', 
-        job_id=match_id,
-        og_title=og_title,
-        og_image=og_image,
-        og_description="Squash match analysis powered by AI",
-        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', '')
-    )
+def match_results_redirect(match_id):
+    """Redirect old match URLs to results page for backwards compatibility"""
+    from flask import redirect
+    return redirect(f'/results/{match_id}', code=301)
 
 
 # ============================================================================
@@ -1326,17 +950,11 @@ def save_match_api(job_id):
         if not job:
             return jsonify({'error': 'Job not found'}), 404
         
-        # Handle both single games (squash_analytics) and combined matches (combined_analytics)
         result = job.get('result', {})
-        is_combined = job.get('type') == 'combined_match' or job_id.startswith('match_')
-        
-        if is_combined:
-            analytics = result.get('combined_analytics', {})
-        else:
-            analytics = result.get('squash_analytics', {})
+        analytics = result.get('squash_analytics', {})
         
         if not analytics:
-            return jsonify({'error': f'No analytics data found (combined={is_combined})'}), 400
+            return jsonify({'error': 'No analytics data found'}), 400
         
         # Upload player image to Supabase Storage
         players_image_url = None

@@ -938,7 +938,7 @@
         function renderScoreCard(data) {
             const jobData = data.job || {};
             const result = data.result || {};
-            const analytics = result.combined_analytics || result.squash_analytics || result.analytics || {};
+            const analytics = result.squash_analytics || result.analytics || {};
             const analysis = analytics.analysis || {};
             const p1 = analytics.player1 || {};
             const p2 = analytics.player2 || {};
@@ -948,10 +948,6 @@
             // Detect sport
             const sport = jobData.sport || 'squash';
             const labels = sportLabels[sport] || sportLabels.squash;
-            
-            // Determine if this is a multi-game match
-            const isMultiGame = jobId.startsWith('match_') || (analytics.games && analytics.games.length > 1);
-            const numGames = analytics.num_games || (analytics.games?.length) || 1;
             
             // Get video name - keep original for file lookups, clean version for display
             let videoNameWithPrefix = result?.video_name || jobData.filename || jobId;
@@ -1045,85 +1041,30 @@
             const duration = matchInfo.total_duration_seconds || matchInfo.duration_seconds || 0;
             const durationFormatted = matchInfo.total_duration_formatted || formatTime(duration);
             
-            // Get winner info
-            const matchResult = analytics.match_result || {};
-            const p1Games = matchResult.player1_games || p1.games_won || (p1TDom > p2TDom ? 1 : 0);
-            const p2Games = matchResult.player2_games || p2.games_won || (p2TDom > p1TDom ? 1 : 0);
-            const winner = matchResult.winner || (p1TDom > p2TDom ? 'Player 1' : p2TDom > p1TDom ? 'Player 2' : 'Tie');
+            // Get winner info based on T-dominance
+            const winner = p1TDom > p2TDom ? 'Player 1' : p2TDom > p1TDom ? 'Player 2' : 'Tie';
             const winnerName = winner === 'Player 1' ? playerNames.player1 : winner === 'Player 2' ? playerNames.player2 : 'Tie';
             
             // Build player frame HTML
-            let playerFrameHtml = '';
-            if (isMultiGame) {
-                const gameJobs = analytics.game_jobs || [];
-                const frameSources = [];
-                gameJobs.forEach((gj, i) => {
-                    if (gj.job_id) {
-                        // Get the original video_name - it already has no extension
-                        // Only strip extension from filename if we're using that as fallback
-                        let vnOriginal = gj.video_name || (gj.filename ? gj.filename.replace(/\.[^/.]+$/, '') : '');
-                        // Create a version without job_id prefix
-                        let vnClean = vnOriginal;
-                        if (vnClean.startsWith(gj.job_id + '_')) {
-                            vnClean = vnClean.substring(gj.job_id.length + 1);
-                        }
-                        
-                        // Try multiple patterns - the file is saved as {video_name}_players.jpg
-                        // where video_name = Path(video_path).stem = "{job_id}_{original_filename}"
-                        // So the actual file is: {job_id}_{original_filename}_players.jpg
-                        
-                        // Pattern 1: Use original video_name directly (e.g., "7acd5dd0_Screen_Recording_players.jpg")
-                        if (vnOriginal) {
-                            frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${vnOriginal}_players.jpg`, label: vnClean || `Game ${i+1}` });
-                        }
-                        // Pattern 2: job_id + clean name (e.g., "7acd5dd0_Screen_Recording_players.jpg")
-                        if (vnClean) {
-                            frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${gj.job_id}_${vnClean}_players.jpg`, label: vnClean || `Game ${i+1}` });
-                        }
-                        // Pattern 3: Just job_id (fallback)
-                        frameSources.push({ jobId: gj.job_id, path: `/results/${gj.job_id}/files/${gj.job_id}_players.jpg`, label: `Game ${i+1}` });
-                    }
-                });
-                
-                // Log for debugging
-                console.log('Multi-game player frame sources:', frameSources);
-                
-                if (frameSources.length > 0) {
-                    playerFrameHtml = `
-                        <img id="playerFrameImg" src="${frameSources[0].path}" alt="Player identification frame" 
-                             onerror="tryNextPlayerFrame(${JSON.stringify(frameSources).replace(/"/g, '&quot;')}, 0)">
-                        <div class="player-id-frame-caption" id="playerFrameCaption">Frame from ${frameSources[0].label}</div>`;
-                } else {
-                    playerFrameHtml = `<div class="player-id-frame-placeholder">Player frame not available</div>`;
-                }
-            } else {
-                // Get filename without extension for pattern matching
-                const filenameNoExt = (jobData.filename || '').replace(/\.[^/.]+$/, '');
-                
-                // Try multiple filename patterns as fallbacks
-                // The file is saved as: {video_name}_players.jpg where video_name = Path(video_path).stem
-                // video_path = uploads/{job_id}_{original_filename}, so video_name = {job_id}_{original_filename_no_ext}
-                const framePaths = [
-                    `/results/${jobId}/files/${videoNameWithPrefix}_players.jpg`,
-                    `/results/${jobId}/files/${jobId}_${videoName}_players.jpg`,
-                    `/results/${jobId}/files/${jobId}_${filenameNoExt}_players.jpg`,
-                    `/results/${jobId}/files/${videoName}_players.jpg`,
-                    `/results/${jobId}/files/${filenameNoExt}_players.jpg`
-                ];
-                
-                // Log for debugging
-                console.log('Player frame paths to try:', framePaths);
-                
-                playerFrameHtml = `
-                    <img id="playerFrameImg" src="${framePaths[0]}" alt="Player identification frame" 
-                         onerror="tryNextPlayerFramePath(${JSON.stringify(framePaths).replace(/"/g, '&quot;')}, 0)">
-                    <div class="player-id-frame-caption">Frame showing both players</div>`;
-            }
+            // Get filename without extension for pattern matching
+            const filenameNoExt = (jobData.filename || '').replace(/\.[^/.]+$/, '');
             
-            // Build video HTML (only for single games)
-            let videoHtml = '';
-            if (!isMultiGame) {
-                videoHtml = `
+            // Try multiple filename patterns as fallbacks
+            const framePaths = [
+                `/results/${jobId}/files/${videoNameWithPrefix}_players.jpg`,
+                `/results/${jobId}/files/${jobId}_${videoName}_players.jpg`,
+                `/results/${jobId}/files/${jobId}_${filenameNoExt}_players.jpg`,
+                `/results/${jobId}/files/${videoName}_players.jpg`,
+                `/results/${jobId}/files/${filenameNoExt}_players.jpg`
+            ];
+            
+            const playerFrameHtml = `
+                <img id="playerFrameImg" src="${framePaths[0]}" alt="Player identification frame" 
+                     onerror="tryNextPlayerFramePath(${JSON.stringify(framePaths).replace(/"/g, '&quot;')}, 0)">
+                <div class="player-id-frame-caption">Frame showing both players</div>`;
+            
+            // Build video HTML
+            const videoHtml = `
                 <div class="video-section">
                     <div class="video-card">
                         <div class="video-header">
@@ -1134,81 +1075,47 @@
                             Your browser does not support video playback.
                         </video>
                     </div>
-                    </div>`;
-            }
+                </div>`;
             
             // Build downloads HTML
-            let downloadsHtml = '';
-            if (isMultiGame) {
-                const gameJobs = analytics.game_jobs || [];
-                const gameDownloads = gameJobs.map((gj, i) => {
-                    const gameName = gj.video_name || gj.filename || `Game ${i+1}`;
-                    return `
-                        <a href="/results/${gj.job_id}" class="download-item">
-                            <span class="download-icon">🎮</span>
+            const downloadsHtml = `
+                <div class="section-card">
+                    <h2 class="section-title">📥 Download Results</h2>
+                    <div class="downloads-grid">
+                        <a href="/results/${jobId}/files/${videoName}_annotated.mp4" class="download-item" download>
+                            <span class="download-icon">🎥</span>
                             <div class="download-info">
-                                <div class="download-name">Game ${i+1} Details</div>
-                                <div class="download-desc">${gameName}</div>
-                </div>
-                            <span class="download-arrow">→</span>
-                        </a>`;
-                }).join('');
-                
-                downloadsHtml = `
-                    <div class="section-card">
-                        <h2 class="section-title">📥 Downloads & Game Details</h2>
-                        <div class="downloads-grid">
-                            <a href="/results/${jobId}/files/combined_match_analytics.json" class="download-item" download>
-                                <span class="download-icon">📊</span>
-                                <div class="download-info">
-                                    <div class="download-name">Combined Match Analytics</div>
-                                    <div class="download-desc">Full match JSON data</div>
-                                </div>
-                                <span class="download-arrow">↓</span>
-                            </a>
-                            ${gameDownloads}
-                        </div>
-                    </div>`;
-            } else {
-                downloadsHtml = `
-                    <div class="section-card">
-                        <h2 class="section-title">📥 Download Results</h2>
-                        <div class="downloads-grid">
-                            <a href="/results/${jobId}/files/${videoName}_annotated.mp4" class="download-item" download>
-                                <span class="download-icon">🎥</span>
-                                <div class="download-info">
-                                    <div class="download-name">Annotated Video</div>
-                                    <div class="download-desc">With detection overlays</div>
-                                </div>
-                                <span class="download-arrow">↓</span>
-                            </a>
-                            <a href="/results/${jobId}/files/${jobId}_${videoName}_squash_analytics.json" class="download-item" download>
-                                <span class="download-icon">📊</span>
-                                <div class="download-info">
-                                    <div class="download-name">${labels.name} Analytics</div>
-                                    <div class="download-desc">Complete analysis JSON</div>
-                                </div>
-                                <span class="download-arrow">↓</span>
-                            </a>
-                            <a href="/results/${jobId}/files/${jobId}_${videoName}_detection_data.json" class="download-item" download>
-                                <span class="download-icon">📄</span>
-                                <div class="download-info">
-                                    <div class="download-name">Detection Data</div>
-                                    <div class="download-desc">Frame-by-frame data</div>
-                                </div>
-                                <span class="download-arrow">↓</span>
-                            </a>
-                            <a href="/results/${jobId}/files/${jobId}_${videoName}_detection_summary.txt" class="download-item" download>
-                                <span class="download-icon">📝</span>
-                                <div class="download-info">
-                                    <div class="download-name">Text Summary</div>
-                                    <div class="download-desc">Human-readable</div>
-                                </div>
-                                <span class="download-arrow">↓</span>
-                            </a>
-                        </div>
-                    </div>`;
-            }
+                                <div class="download-name">Annotated Video</div>
+                                <div class="download-desc">With detection overlays</div>
+                            </div>
+                            <span class="download-arrow">↓</span>
+                        </a>
+                        <a href="/results/${jobId}/files/${jobId}_${videoName}_squash_analytics.json" class="download-item" download>
+                            <span class="download-icon">📊</span>
+                            <div class="download-info">
+                                <div class="download-name">${labels.name} Analytics</div>
+                                <div class="download-desc">Complete analysis JSON</div>
+                            </div>
+                            <span class="download-arrow">↓</span>
+                        </a>
+                        <a href="/results/${jobId}/files/${jobId}_${videoName}_detection_data.json" class="download-item" download>
+                            <span class="download-icon">📄</span>
+                            <div class="download-info">
+                                <div class="download-name">Detection Data</div>
+                                <div class="download-desc">Frame-by-frame data</div>
+                            </div>
+                            <span class="download-arrow">↓</span>
+                        </a>
+                        <a href="/results/${jobId}/files/${jobId}_${videoName}_detection_summary.txt" class="download-item" download>
+                            <span class="download-icon">📝</span>
+                            <div class="download-info">
+                                <div class="download-name">Text Summary</div>
+                                <div class="download-desc">Human-readable</div>
+                            </div>
+                            <span class="download-arrow">↓</span>
+                        </a>
+                    </div>
+                </div>`;
             
             // Generate match summary - ALWAYS use the detailed JS summary
             // (ignore the short server-generated summary in analysis.match_summary)
@@ -1219,7 +1126,7 @@
                 <!-- Score Card Header -->
                 <div class="scorecard-header">
                     <h1 class="scorecard-title"><span class="sport-icon">${labels.icon}</span> ${labels.name} Score Card</h1>
-                    <p class="scorecard-subtitle">${isMultiGame ? `${numGames}-Game Match` : videoName} • ${durationFormatted}</p>
+                    <p class="scorecard-subtitle">${videoName} • ${durationFormatted}</p>
                 </div>
                 
                 <!-- Video (single game only) -->
@@ -1276,7 +1183,7 @@
                         <div class="stat-label">${labels.t_dominance} Winner</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${isMultiGame ? pxToMiles(p1Running + p2Running) + ' mi' : pxToFt(p1Running + p2Running) + ' ft'}</div>
+                        <div class="stat-value">${pxToFt(p1Running + p2Running)} ft</div>
                         <div class="stat-label">Total Distance</div>
                         </div>
                     <div class="stat-card">
@@ -1343,12 +1250,12 @@
                             <div class="metric-bars">
                                 <div class="metric-player p1">
                                     <div class="metric-player-label player1-name">${playerNames.player1}</div>
-                                    <div class="metric-player-value">${isMultiGame ? pxToMiles(p1Running) + ' mi' : pxToFt(p1Running) + ' ft'}</div>
+                                    <div class="metric-player-value">${pxToFt(p1Running)} ft</div>
                                     <div class="metric-bar-container"><div class="metric-bar p1" style="width: ${p1RunPct}%"></div></div>
                             </div>
                                 <div class="metric-player p2">
                                     <div class="metric-player-label player2-name">${playerNames.player2}</div>
-                                    <div class="metric-player-value">${isMultiGame ? pxToMiles(p2Running) + ' mi' : pxToFt(p2Running) + ' ft'}</div>
+                                    <div class="metric-player-value">${pxToFt(p2Running)} ft</div>
                                     <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2RunPct}%"></div></div>
                                 </div>
                                 </div>
@@ -1562,12 +1469,6 @@
                             <div class="stat-label">Avg Confidence</div>
                         </div>
                         <div class="stat-item" style="text-align: center;">
-                            <div class="stat-value" style="font-size: 1.5rem; color: ${(dataQuality.quality_score || 0) >= 60 ? '#00d4aa' : (dataQuality.quality_score || 0) >= 40 ? '#ffc107' : '#ff6b6b'};">
-                                ${dataQuality.quality_score?.toFixed(1) ?? 'N/A'}%
-                            </div>
-                            <div class="stat-label">Quality Score</div>
-                        </div>
-                        <div class="stat-item" style="text-align: center;">
                             <div class="stat-value" style="font-size: 1.2rem; color: ${(dataQuality.player_detection_rate || 0) >= 70 ? '#00d4aa' : '#ff6b6b'};">
                                 ${(dataQuality.player_detection_rate || 0) >= 70 ? '✓ Reliable' : '⚠ Low Detection'}
                             </div>
@@ -1591,21 +1492,7 @@
             `;
         }
         
-        // Player frame fallback for multi-game matches
-        function tryNextPlayerFrame(sources, currentIndex) {
-            const nextIndex = currentIndex + 1;
-            if (nextIndex < sources.length) {
-                const img = document.getElementById('playerFrameImg');
-                const caption = document.getElementById('playerFrameCaption');
-                img.src = sources[nextIndex].path;
-                img.onerror = () => tryNextPlayerFrame(sources, nextIndex);
-                if (caption) caption.textContent = `Frame from ${sources[nextIndex].label}`;
-            } else {
-                document.querySelector('.player-id-frame').innerHTML = '<div class="player-id-frame-placeholder">Player frame not available</div>';
-            }
-        }
-        
-        // Player frame fallback for single games - try different filename patterns
+        // Player frame fallback - try different filename patterns
         function tryNextPlayerFramePath(paths, currentIndex) {
             const nextIndex = currentIndex + 1;
             if (nextIndex < paths.length) {
@@ -1640,7 +1527,7 @@
             document.querySelectorAll('.highlight-p2').forEach(el => el.textContent = p2);
             
             // Get analytics for winner calculations
-            const analytics = analyticsData?.result?.combined_analytics || analyticsData?.result?.squash_analytics || analyticsData?.result?.analytics || {};
+            const analytics = analyticsData?.result?.squash_analytics || analyticsData?.result?.analytics || {};
             const p1Data = analytics.player1 || {};
             const p2Data = analytics.player2 || {};
             
