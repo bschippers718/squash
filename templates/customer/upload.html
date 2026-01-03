@@ -1682,6 +1682,15 @@
         submitBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
 
+            // Require authentication before uploading
+            if (!clerkLoaded || !Clerk.user) {
+                Clerk.openSignIn({
+                    afterSignInUrl: window.location.href,
+                    afterSignUpUrl: window.location.href
+                });
+                return;
+            }
+
             submitBtn.disabled = true;
             uploadedJobs = [];
             completedJobs = [];
