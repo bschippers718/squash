@@ -870,9 +870,22 @@ def update_player_names(job_id):
 
 @app.route('/match/<match_id>')
 def match_results_redirect(match_id):
-    """Redirect old match URLs to results page for backwards compatibility"""
+    """Handle old combined match URLs - redirect to first game or show message"""
     from flask import redirect
-    return redirect(f'/results/{match_id}', code=301)
+    
+    # Try to find the first game from the match_id pattern (match_xxxx_yyyy -> xxxx)
+    if match_id.startswith('match_'):
+        # Extract first job prefix from match_id (e.g., "match_abd7_19bd" -> "abd7")
+        prefixes = match_id.replace('match_', '').split('_')
+        if prefixes:
+            first_prefix = prefixes[0]
+            # Find a job directory that starts with this prefix
+            for result_dir in RESULTS_FOLDER.iterdir():
+                if result_dir.is_dir() and result_dir.name.startswith(first_prefix) and not result_dir.name.startswith('match_'):
+                    return redirect(f'/results/{result_dir.name}', code=301)
+    
+    # Fallback: redirect to home with a message
+    return redirect('/?error=combined_matches_removed', code=302)
 
 
 # ============================================================================
