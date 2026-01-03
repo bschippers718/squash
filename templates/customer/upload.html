@@ -628,6 +628,293 @@
         .metric-insight.loser { color: var(--secondary); }
 
         /* ============================================
+           SAMPLE RESULTS PREVIEW
+        ============================================ */
+        .sample-results-section {
+            padding: 100px 24px;
+            background: var(--surface);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sample-results-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+        }
+
+        .sample-results-container {
+            max-width: 1100px;
+            margin: 60px auto 0;
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .sample-player-frame {
+            position: relative;
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .sample-player-frame.animate {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        .sample-frame-label {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--primary);
+            color: var(--dark);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sample-frame-img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .sample-frame-badge {
+            position: absolute;
+            bottom: 28px;
+            right: 28px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            color: var(--primary);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid rgba(0, 255, 135, 0.3);
+        }
+
+        .sample-analytics {
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .sample-analytics.animate {
+            animation: fadeInUp 0.6s ease-out 0.15s forwards;
+        }
+
+        .sample-match-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sample-match-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .sample-match-winner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 255, 135, 0.1);
+            border: 1px solid rgba(0, 255, 135, 0.3);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 0.9rem;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .winner-badge {
+            font-size: 1rem;
+        }
+
+        .sample-t-dominance {
+            margin-bottom: 28px;
+        }
+
+        .t-dom-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+        }
+
+        .t-dom-label {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .t-dom-insight {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .t-dom-bar-container {
+            position: relative;
+        }
+
+        .t-dom-bar {
+            display: flex;
+            height: 32px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--surface);
+        }
+
+        .t-dom-fill {
+            height: 100%;
+            transition: width 1s ease-out;
+        }
+
+        .t-dom-fill.p1 {
+            background: linear-gradient(90deg, var(--primary), rgba(0, 255, 135, 0.7));
+        }
+
+        .t-dom-fill.p2 {
+            background: linear-gradient(90deg, rgba(0, 212, 255, 0.7), var(--accent));
+        }
+
+        .t-dom-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .t-dom-player {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .t-dom-player.p1 strong { color: var(--primary); }
+        .t-dom-player.p2 strong { color: var(--accent); }
+
+        .sample-metrics-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .sample-metric {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .sample-metric:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .sample-metric-icon {
+            font-size: 1.8rem;
+        }
+
+        .sample-metric-data {
+            flex: 1;
+        }
+
+        .sample-metric-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .sample-metric-values {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sample-metric-values .p1 { color: var(--primary); }
+        .sample-metric-values .p2 { color: var(--accent); }
+        .sample-metric-values .vs { color: var(--text-muted); font-size: 0.75rem; font-weight: 400; }
+        .sample-metric-values .highlight { font-size: 1.1rem; }
+        .sample-metric-values .positive { color: var(--primary); }
+        .sample-metric-values .negative { color: var(--secondary); }
+
+        .sample-view-full {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px 24px;
+            background: transparent;
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .sample-view-full:hover {
+            background: var(--primary);
+            color: var(--dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--primary-glow);
+        }
+
+        .sample-view-full svg {
+            transition: transform 0.3s ease;
+        }
+
+        .sample-view-full:hover svg {
+            transform: translateX(4px);
+        }
+
+        @media (max-width: 900px) {
+            .sample-results-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sample-player-frame {
+                max-width: 400px;
+                margin: 0 auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .sample-metrics-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ============================================
            UPLOAD SECTION
         ============================================ */
         .upload-section {
@@ -1332,73 +1619,93 @@
         </div>
     </section>
 
-    <!-- Metrics Showcase -->
-    <section class="metrics-section">
+    <!-- Sample Results Preview -->
+    <section class="sample-results-section">
         <div class="section-header">
-            <div class="section-label">Real Insights</div>
-            <h2 class="section-title">What You'll Discover</h2>
-            <p class="section-subtitle">Here's what Squash.AI revealed from a recent Mohamed vs Ali match</p>
+            <div class="section-label">Sample Results</div>
+            <h2 class="section-title">See What You'll Get</h2>
+            <p class="section-subtitle">Real analytics from an actual match analysis</p>
         </div>
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-icon">🎯</div>
-                <div class="metric-label">T-Dominance</div>
-                <div class="metric-values">
-                    <div class="metric-player">
-                        <div class="metric-value p1">62%</div>
-                        <div class="metric-name">Mohamed</div>
-                    </div>
-                    <div class="metric-player">
-                        <div class="metric-value p2">38%</div>
-                        <div class="metric-name">Ali</div>
-                    </div>
-                </div>
-                <div class="metric-insight winner">Mohamed controls the T</div>
+        
+        <div class="sample-results-container">
+            <!-- Left: Player Detection Image -->
+            <div class="sample-player-frame">
+                <div class="sample-frame-label">Player Detection</div>
+                <img src="/static/sample/players.jpg" alt="Player Detection Frame" class="sample-frame-img">
+                <div class="sample-frame-badge">91% Detection Accuracy</div>
             </div>
-            <div class="metric-card">
-                <div class="metric-icon">🏃</div>
-                <div class="metric-label">Scramble Score</div>
-                <div class="metric-values">
-                    <div class="metric-player">
-                        <div class="metric-value p1">12.4ft</div>
-                        <div class="metric-name">Mohamed</div>
-                    </div>
-                    <div class="metric-player">
-                        <div class="metric-value p2">18.7ft</div>
-                        <div class="metric-name">Ali</div>
+            
+            <!-- Right: Analytics Preview -->
+            <div class="sample-analytics">
+                <div class="sample-match-header">
+                    <div class="sample-match-title">Match Summary</div>
+                    <div class="sample-match-winner">
+                        <span class="winner-badge">👑</span>
+                        <span>Player 2 controls the T</span>
                     </div>
                 </div>
-                <div class="metric-insight loser">Ali being stretched</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-icon">⚡</div>
-                <div class="metric-label">Attack Score</div>
-                <div class="metric-values">
-                    <div class="metric-player">
-                        <div class="metric-value p1">24</div>
-                        <div class="metric-name">Mohamed</div>
+                
+                <!-- T-Dominance Bar -->
+                <div class="sample-t-dominance">
+                    <div class="t-dom-header">
+                        <span class="t-dom-label">T-Dominance</span>
+                        <span class="t-dom-insight">Court control breakdown</span>
                     </div>
-                    <div class="metric-player">
-                        <div class="metric-value p2">16</div>
-                        <div class="metric-name">Ali</div>
-                    </div>
-                </div>
-                <div class="metric-insight winner">Mohamed dictating play</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-icon">🔋</div>
-                <div class="metric-label">Fatigue Drop</div>
-                <div class="metric-values">
-                    <div class="metric-player">
-                        <div class="metric-value p1">-3%</div>
-                        <div class="metric-name">Mohamed</div>
-                    </div>
-                    <div class="metric-player">
-                        <div class="metric-value p2">-29%</div>
-                        <div class="metric-name">Ali</div>
+                    <div class="t-dom-bar-container">
+                        <div class="t-dom-bar">
+                            <div class="t-dom-fill p1" style="width: 46.5%;"></div>
+                            <div class="t-dom-fill p2" style="width: 53.5%;"></div>
+                        </div>
+                        <div class="t-dom-labels">
+                            <span class="t-dom-player p1">Player 1 <strong>46.5%</strong></span>
+                            <span class="t-dom-player p2"><strong>53.5%</strong> Player 2</span>
+                        </div>
                     </div>
                 </div>
-                <div class="metric-insight loser">Ali fading late</div>
+                
+                <!-- Metric Cards Row -->
+                <div class="sample-metrics-row">
+                    <div class="sample-metric">
+                        <div class="sample-metric-icon">🏃</div>
+                        <div class="sample-metric-data">
+                            <div class="sample-metric-label">Running</div>
+                            <div class="sample-metric-values">
+                                <span class="p1">9,023 ft</span>
+                                <span class="vs">vs</span>
+                                <span class="p2">9,494 ft</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sample-metric">
+                        <div class="sample-metric-icon">⚡</div>
+                        <div class="sample-metric-data">
+                            <div class="sample-metric-label">Attacks</div>
+                            <div class="sample-metric-values">
+                                <span class="p1 highlight">4</span>
+                                <span class="vs">vs</span>
+                                <span class="p2">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sample-metric">
+                        <div class="sample-metric-icon">🔋</div>
+                        <div class="sample-metric-data">
+                            <div class="sample-metric-label">Speed Change</div>
+                            <div class="sample-metric-values">
+                                <span class="p1 positive">+6.1%</span>
+                                <span class="vs">vs</span>
+                                <span class="p2 positive">+5.9%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <a href="/results/abd72116" class="sample-view-full">
+                    View Full Analysis
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                </a>
             </div>
         </div>
     </section>
@@ -1541,7 +1848,7 @@
         // Scroll Animations
         // ============================================
         const animateOnScroll = () => {
-            const elements = document.querySelectorAll('.step, .metric-card, .feature-card, .upload-card');
+            const elements = document.querySelectorAll('.step, .metric-card, .feature-card, .upload-card, .sample-player-frame, .sample-analytics');
             
             elements.forEach(el => {
                 const rect = el.getBoundingClientRect();
