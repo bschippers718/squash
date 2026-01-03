@@ -651,6 +651,13 @@ def list_jobs():
 @app.route('/api/results/<job_id>')
 def get_results_api(job_id):
     """API endpoint to get results data for a job"""
+    # Handle old combined match IDs gracefully
+    if job_id.startswith('match_'):
+        return jsonify({
+            'error': 'Combined matches are no longer supported. Please upload individual game videos.',
+            'legacy_match': True
+        }), 410  # 410 Gone
+    
     job = get_job(job_id)
     if not job:
         job = load_job_from_disk(job_id)
@@ -930,6 +937,10 @@ def get_my_matches():
             return jsonify({'error': 'Authentication required'}), 401
         
         matches = get_user_matches(user['id'])
+        
+        # Filter out old combined matches (job_id starting with 'match_')
+        # These are no longer supported after architecture simplification
+        matches = [m for m in matches if not m.get('job_id', '').startswith('match_')]
         
         return jsonify({
             'matches': matches
