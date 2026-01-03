@@ -1064,8 +1064,33 @@
             font-size: 2rem;
         }
 
+        .sport-icon-img {
+            width: 32px;
+            height: 32px;
+        }
+
         .sport-name {
             font-weight: 600;
+        }
+
+        .sport-option.coming-soon label {
+            opacity: 0.5;
+            cursor: not-allowed;
+            position: relative;
+        }
+
+        .coming-soon-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--secondary);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 100px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         /* File List */
@@ -1733,15 +1758,16 @@
                         <div class="sport-option">
                             <input type="radio" name="sport" id="sport-squash" value="squash" checked>
                             <label for="sport-squash">
-                                <span class="sport-icon">🎾</span>
+                                <img src="/static/squash-ball.svg" alt="Squash" class="sport-icon-img">
                                 <span class="sport-name">Squash</span>
                             </label>
                         </div>
-                        <div class="sport-option">
-                            <input type="radio" name="sport" id="sport-padel" value="padel">
+                        <div class="sport-option coming-soon">
+                            <input type="radio" name="sport" id="sport-padel" value="padel" disabled>
                             <label for="sport-padel">
-                                <span class="sport-icon">🏓</span>
+                                <span class="sport-icon">🎾</span>
                                 <span class="sport-name">Padel</span>
+                                <span class="coming-soon-badge">Coming Soon</span>
                             </label>
                         </div>
                     </div>
