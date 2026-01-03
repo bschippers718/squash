@@ -1276,12 +1276,12 @@
             <p class="hero-subtitle">
                 Stop guessing. Start winning. Get professional-level analytics from your match videos in minutes.
             </p>
-            <a href="#upload" class="hero-cta">
+            <button type="button" class="hero-cta" onclick="handleHeroCTA()">
                 Analyze Your Match
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
-            </a>
+            </button>
         </div>
         <div class="scroll-indicator">
             <span></span>
@@ -1555,6 +1555,23 @@
 
         window.addEventListener('scroll', animateOnScroll);
         window.addEventListener('load', animateOnScroll);
+
+        // ============================================
+        // Hero CTA Handler
+        // ============================================
+        function handleHeroCTA() {
+            // Check auth first
+            if (!clerkLoaded || !Clerk.user) {
+                Clerk.openSignIn({
+                    afterSignInUrl: window.location.href,
+                    afterSignUpUrl: window.location.href
+                });
+                return;
+            }
+            
+            // If logged in, open file picker directly
+            document.getElementById('fileInput').click();
+        }
 
         // ============================================
         // Upload Functionality
