@@ -2297,8 +2297,22 @@
             formData.append('sport', getSelectedSport());
 
             try {
+                // Get Clerk token for authentication (enables auto-save after processing)
+                const headers = {};
+                if (clerkLoaded && Clerk.session) {
+                    try {
+                        const token = await Clerk.session.getToken();
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                    } catch (e) {
+                        console.log('Could not get Clerk token:', e);
+                    }
+                }
+
                 const response = await fetch('/upload', {
                     method: 'POST',
+                    headers: headers,
                     body: formData
                 });
 
