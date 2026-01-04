@@ -37,15 +37,21 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__, template_folder='templates/customer', static_folder='static')
 
-# Disable caching for all responses
+# Disable caching for all responses and enable cross-origin isolation for FFmpeg.wasm
 @app.after_request
-def add_no_cache_headers(response):
-    """Add headers to prevent caching of API and HTML responses."""
+def add_headers(response):
+    """Add headers for caching and cross-origin isolation (required for SharedArrayBuffer/FFmpeg)."""
     # Don't cache JSON API responses or HTML pages
     if response.content_type and ('application/json' in response.content_type or 'text/html' in response.content_type):
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
+    
+    # Cross-origin isolation headers (required for SharedArrayBuffer used by FFmpeg.wasm)
+    # Using 'credentialless' for COEP to allow loading Clerk and other cross-origin scripts
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+    response.headers['Cross-Origin-Embedder-Policy'] = 'credentialless'
+    
     return response
 
 # Configuration
