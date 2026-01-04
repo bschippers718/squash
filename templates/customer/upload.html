@@ -2356,11 +2356,15 @@
 
         submitBtn.addEventListener('click', async () => {
             // Require authentication before uploading
-            if (!clerkLoaded || !Clerk.user) {
-                Clerk.openSignIn({
-                    afterSignInUrl: window.location.href,
-                    afterSignUpUrl: window.location.href
-                });
+            if (!clerkLoaded || typeof Clerk === 'undefined' || !Clerk.user) {
+                if (typeof Clerk !== 'undefined' && Clerk.openSignIn) {
+                    Clerk.openSignIn({
+                        afterSignInUrl: window.location.href,
+                        afterSignUpUrl: window.location.href
+                    });
+                } else {
+                    showError('Please sign in to upload videos. Refresh the page if login is not appearing.');
+                }
                 return;
             }
 
