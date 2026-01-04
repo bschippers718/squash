@@ -2460,12 +2460,14 @@
 
             try {
                 // Get Clerk token for authentication
+                console.log('Step 1: Getting auth token...');
                 const headers = { 'Content-Type': 'application/json' };
                 if (clerkLoaded && Clerk.session) {
                     try {
                         const token = await Clerk.session.getToken();
                         if (token) {
                             headers['Authorization'] = `Bearer ${token}`;
+                            console.log('Auth token obtained');
                         }
                     } catch (e) {
                         console.log('Could not get Clerk token:', e);
@@ -2473,6 +2475,7 @@
                 }
 
                 // Step 2: Initialize upload and get signed URL
+                console.log('Step 2: Initializing upload...', { filename: file.name, size: fileToUpload.size });
                 const initResponse = await fetch('/api/upload/init', {
                     method: 'POST',
                     headers: headers,
@@ -2484,11 +2487,13 @@
                 });
 
                 const initData = await initResponse.json();
+                console.log('Init response:', initData);
                 if (!initResponse.ok) {
                     throw new Error(initData.error || 'Failed to initialize upload');
                 }
 
                 const { job_id: jobId, upload_url: uploadUrl, upload_token: uploadToken } = initData;
+                console.log('Step 3: Uploading to Supabase...', { jobId, uploadUrl: uploadUrl?.substring(0, 50) + '...' });
                 
                 // Step 3: Upload directly to Supabase Storage
                 const progressEl = document.getElementById(`progress-${index}`);
@@ -2499,29 +2504,33 @@
                         if (progressEl) progressEl.style.width = progress + '%';
                         if (percentEl) percentEl.textContent = Math.round(progress) + '%';
                     });
+                    console.log('Supabase upload complete!');
                 } catch (uploadError) {
                     // Direct upload failed - fall back to server upload
                     console.warn('Direct upload failed, falling back to server upload:', uploadError);
                     if (percentEl) percentEl.textContent = 'Retrying...';
                     if (progressEl) progressEl.style.width = '0%';
                     
-                    // Use server upload as fallback
+                    // Use server upload as fallback (with compressed file)
                     await uploadFile(fileToUpload, index);
                     return; // uploadFile handles the rest
                 }
                 
                 // Step 4: Notify server that upload is complete
+                console.log('Step 4: Notifying server upload complete...');
                 const completeResponse = await fetch(`/api/upload/complete/${jobId}`, {
                     method: 'POST',
                     headers: headers
                 });
 
                 const completeData = await completeResponse.json();
+                console.log('Complete response:', completeData);
                 if (!completeResponse.ok) {
                     throw new Error(completeData.error || 'Failed to complete upload');
                 }
 
                 uploadedJobs.push({ jobId, name: file.name, index });
+                console.log('Upload successful! Starting progress polling...');
                 
                 // Poll for processing progress
                 pollProgress(jobId, index);
@@ -2531,7 +2540,7 @@
                 // If direct upload completely fails, try server upload as last resort
                 console.log('Attempting server upload as fallback...');
                 try {
-                    await uploadFile(file, index);
+                    await uploadFile(fileToUpload, index); // Use compressed file for fallback too
                 } catch (fallbackError) {
                     statusEl.innerHTML = `<span class="file-item-badge error">Error</span>`;
                     showError('Upload failed. Please try a smaller file or compress your video first.');
