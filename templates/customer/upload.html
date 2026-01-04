@@ -2285,9 +2285,11 @@
             ffmpegLoading = true;
             try {
                 const { createFFmpeg, fetchFile } = FFmpeg;
+                // Use absolute URL for corePath (required by FFmpeg.wasm)
+                const baseUrl = window.location.origin;
                 ffmpeg = createFFmpeg({
                     log: false,
-                    corePath: '/static/ffmpeg/ffmpeg-core.js'
+                    corePath: `${baseUrl}/static/ffmpeg/ffmpeg-core.js`
                 });
                 await ffmpeg.load();
                 console.log('FFmpeg loaded successfully');
