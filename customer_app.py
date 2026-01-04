@@ -377,6 +377,317 @@ def upload_video():
         'message': 'Video uploaded successfully! Processing started.'
     })
 
+
+# ============================================================================
+# Direct-to-Cloud Upload API (Scalable)
+# ============================================================================
+
+@app.route('/api/upload/init', methods=['POST'])
+def init_direct_upload():
+    """
+    Initialize a direct upload to Supabase Storage.
+    Returns a signed URL for the client to upload directly.
+    """
+    try:
+        data = request.get_json() or {}
+        filename = data.get('filename', '')
+        sport = data.get('sport', 'squash')
+        file_size = data.get('file_size', 0)
+        
+        if not filename:
+            return jsonify({'error': 'Filename is required'}), 400
+        
+        # Validate file extension
+        if not allowed_file(filename):
+            return jsonify({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
+        
+        # Validate sport
+        valid_sports = ['squash', 'padel', 'tennis', 'table_tennis']
+        if sport not in valid_sports:
+            sport = 'squash'
+        
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())[:8]
+        safe_filename = secure_filename(filename)
+        
+        # Get user ID if logged in
+        user_id = None
+        try:
+            from auth import get_current_user
+            user = get_current_user()
+            if user:
+                user_id = user.get('id')
+        except Exception as e:
+            print(f"Could not get user: {e}")
+        
+        # Create job in Supabase queue
+        from supabase_client import create_job, create_signed_upload_url
+        
+        # Generate signed upload URL
+        upload_info = create_signed_upload_url(job_id, safe_filename)
+        if not upload_info:
+            return jsonify({'error': 'Failed to create upload URL'}), 500
+        
+        # Create job record
+        job = create_job(
+            job_id=job_id,
+            filename=safe_filename,
+            sport=sport,
+            user_id=user_id,
+            storage_path=upload_info['path']
+        )
+        
+        if not job:
+            return jsonify({'error': 'Failed to create job'}), 500
+        
+        # Also create local job entry for real-time status
+        with jobs_lock:
+            jobs[job_id] = {
+                'id': job_id,
+                'filename': safe_filename,
+                'file_size': file_size,
+                'sport': sport,
+                'status': 'uploading',
+                'progress': 0,
+                'message': 'Uploading video...',
+                'created_at': datetime.now().isoformat(),
+                'user_id': user_id,
+                'storage_path': upload_info['path'],
+                'upload_type': 'direct'  # Mark as direct upload
+            }
+        
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'upload_url': upload_info['signed_url'],
+            'upload_token': upload_info.get('token'),
+            'storage_path': upload_info['path'],
+            'sport': sport
+        })
+        
+    except Exception as e:
+        print(f"Error initializing upload: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/upload/complete/<job_id>', methods=['POST'])
+def complete_direct_upload(job_id):
+    """
+    Mark a direct upload as complete and queue for processing.
+    Called by the client after successful upload to Supabase Storage.
+    """
+    try:
+        # Get job from local memory or Supabase
+        job = get_job(job_id)
+        
+        if not job:
+            # Try to get from Supabase
+            from supabase_client import get_job_by_job_id
+            job = get_job_by_job_id(job_id)
+        
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        # Update job status to queued
+        from supabase_client import update_job as update_job_db
+        update_job_db(job_id, status='queued', message='Video uploaded, waiting to process...')
+        
+        # Update local job
+        update_job(job_id, status='queued', message='Video uploaded, waiting to process...')
+        
+        # Trigger background processing
+        storage_path = job.get('storage_path')
+        sport = job.get('sport', 'squash')
+        
+        if storage_path:
+            # Start processing from cloud storage
+            thread = threading.Thread(
+                target=process_video_from_cloud,
+                args=(job_id, storage_path, sport)
+            )
+            thread.daemon = True
+            thread.start()
+        
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'status': 'queued',
+            'message': 'Upload complete, processing started'
+        })
+        
+    except Exception as e:
+        print(f"Error completing upload: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/upload/status/<job_id>')
+def get_direct_upload_status(job_id):
+    """Get status of a direct upload job (from Supabase queue)."""
+    try:
+        # First check local memory
+        job = get_job(job_id)
+        
+        if job:
+            return jsonify(job)
+        
+        # Fall back to Supabase
+        from supabase_client import get_job_by_job_id
+        job = get_job_by_job_id(job_id)
+        
+        if not job:
+            # Try loading from disk
+            job = load_job_from_disk(job_id)
+        
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        return jsonify(job)
+        
+    except Exception as e:
+        print(f"Error getting upload status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def process_video_from_cloud(job_id, storage_path, sport='squash'):
+    """
+    Background task to process video from Supabase Storage.
+    Downloads the video, processes it, and updates the job.
+    """
+    import traceback
+    import tempfile
+    
+    print(f"[{job_id}] Starting cloud video processing...", flush=True)
+    
+    try:
+        from supabase_client import (
+            download_video_for_processing,
+            update_job as update_job_db,
+            delete_video_from_storage,
+            upload_player_image
+        )
+        
+        # Update status
+        update_job(job_id, status='processing', progress=0, message='Downloading video...')
+        update_job_db(job_id, status='processing', progress=0, message='Downloading video...', started_at=True)
+        
+        # Download video to temp file
+        filename = storage_path.split('/')[-1]
+        local_path = UPLOAD_FOLDER / f"{job_id}_{filename}"
+        
+        print(f"[{job_id}] Downloading from {storage_path} to {local_path}...", flush=True)
+        
+        if not download_video_for_processing(storage_path, str(local_path)):
+            raise Exception("Failed to download video from storage")
+        
+        print(f"[{job_id}] Download complete, starting processing...", flush=True)
+        
+        # Now process using existing function
+        from video_processor import process_video
+        
+        update_job(job_id, progress=5, message=f'Starting {sport} video processing...')
+        update_job_db(job_id, progress=5, message=f'Starting {sport} video processing...')
+        
+        output_dir = RESULTS_FOLDER / job_id
+        output_dir.mkdir(exist_ok=True)
+        
+        def progress_callback(progress, message):
+            # Scale progress from 5-95 for processing phase
+            scaled_progress = 5 + (progress * 0.9)
+            print(f"[{job_id}] Progress: {scaled_progress:.1f}% - {message}", flush=True)
+            update_job(job_id, progress=scaled_progress, message=message)
+            # Update DB less frequently (every 10%)
+            if int(progress) % 10 == 0:
+                update_job_db(job_id, progress=scaled_progress, message=message)
+        
+        # Get sport-specific parameters
+        from sport_model_config import get_sport_config
+        sport_config = get_sport_config(sport)
+        
+        result = process_video(
+            video_path=str(local_path),
+            output_dir=str(output_dir),
+            progress_callback=progress_callback,
+            sport=sport,
+            confidence=sport_config['confidence'],
+            ball_confidence=sport_config['ball_confidence'],
+            min_person_height_ratio=sport_config['min_person_height_ratio'],
+            court_margin=sport_config['court_margin']
+        )
+        
+        if result.get('success'):
+            update_job(job_id, 
+                status='completed', 
+                progress=100, 
+                message='Processing complete!',
+                result=result
+            )
+            update_job_db(job_id,
+                status='completed',
+                progress=100,
+                message='Processing complete!',
+                analytics=result.get('analytics'),
+                completed_at=True
+            )
+            
+            # Try to upload player image and auto-save
+            try:
+                job = get_job(job_id)
+                user_id = job.get('user_id')
+                
+                # Find and upload player image
+                players_images = list(output_dir.glob('*_players.jpg'))
+                if players_images and user_id:
+                    players_image_url = upload_player_image(job_id, str(players_images[0]))
+                    if players_image_url:
+                        update_job_db(job_id, players_image_url=players_image_url)
+                        
+                        # Auto-save to matches
+                        from supabase_client import save_match, check_match_saved
+                        if not check_match_saved(job_id, user_id):
+                            analytics = result.get('analytics', {})
+                            p1_name = analytics.get('player1', {}).get('name', 'Player 1')
+                            p2_name = analytics.get('player2', {}).get('name', 'Player 2')
+                            
+                            save_match(
+                                user_id=user_id,
+                                job_id=job_id,
+                                filename=filename,
+                                analytics=analytics,
+                                sport=sport,
+                                players_image_url=players_image_url,
+                                player1_name=p1_name,
+                                player2_name=p2_name
+                            )
+            except Exception as e:
+                print(f"[{job_id}] Error in post-processing: {e}")
+            
+            # Clean up: delete video from cloud storage (keep local for serving)
+            try:
+                delete_video_from_storage(storage_path)
+                print(f"[{job_id}] Deleted video from cloud storage")
+            except Exception as e:
+                print(f"[{job_id}] Failed to delete from cloud storage: {e}")
+        else:
+            error_msg = result.get('error', 'Processing failed')
+            update_job(job_id, status='failed', message=error_msg)
+            update_job_db(job_id, status='failed', error=error_msg)
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[{job_id}] Error processing cloud video: {error_msg}", flush=True)
+        traceback.print_exc()
+        update_job(job_id, status='failed', message=f'Error: {error_msg}')
+        try:
+            from supabase_client import update_job as update_job_db
+            update_job_db(job_id, status='failed', error=error_msg)
+        except:
+            pass
+
+
 @app.route('/status/<job_id>')
 def get_status(job_id):
     """Get job status"""
@@ -1066,6 +1377,65 @@ def check_match_saved_api(job_id):
         return jsonify({'saved': False, 'error': str(e)})
 
 
+# ============================================================================
+# Background Queue Worker (Optional - for processing stale jobs)
+# ============================================================================
+
+_queue_worker_running = False
+
+def start_queue_worker():
+    """
+    Start a background worker that polls for queued jobs.
+    This catches any jobs that failed to start processing.
+    """
+    global _queue_worker_running
+    
+    if _queue_worker_running:
+        return
+    
+    _queue_worker_running = True
+    
+    def worker():
+        print("[Queue Worker] Started")
+        while _queue_worker_running:
+            try:
+                from supabase_client import get_next_queued_job, update_job as update_job_db
+                
+                job = get_next_queued_job()
+                
+                if job:
+                    job_id = job.get('job_id')
+                    storage_path = job.get('storage_path')
+                    sport = job.get('sport', 'squash')
+                    
+                    print(f"[Queue Worker] Found queued job: {job_id}")
+                    
+                    # Mark as processing to prevent re-pickup
+                    update_job_db(job_id, status='processing', message='Starting processing...')
+                    
+                    # Process the video
+                    if storage_path:
+                        process_video_from_cloud(job_id, storage_path, sport)
+                    else:
+                        print(f"[Queue Worker] Job {job_id} has no storage_path, skipping")
+                        update_job_db(job_id, status='failed', error='No storage path')
+                
+            except Exception as e:
+                print(f"[Queue Worker] Error: {e}")
+            
+            # Poll every 30 seconds
+            time.sleep(30)
+    
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
+
+def stop_queue_worker():
+    """Stop the background queue worker."""
+    global _queue_worker_running
+    _queue_worker_running = False
+
+
 if __name__ == '__main__':
     # Create template directory
     os.makedirs('templates/customer', exist_ok=True)
@@ -1081,6 +1451,12 @@ if __name__ == '__main__':
     print("=" * 50)
     print(f"Environment: {'PRODUCTION' if is_production else 'DEVELOPMENT'}")
     print(f"Debug mode: {debug}")
+    
+    # Start background queue worker in production
+    if is_production:
+        print("Starting background queue worker...")
+        start_queue_worker()
+    
     print("Starting server...")
     print(f"Open your browser to: http://localhost:{port}")
     print("=" * 50, flush=True)

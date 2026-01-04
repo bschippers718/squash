@@ -1536,7 +1536,7 @@
             
             .btn {
                 padding: 8px 14px;
-                font-size: 0.8rem;
+            font-size: 0.8rem;
             }
             
             .nav-actions {
@@ -1544,7 +1544,7 @@
             }
             
             .section-title {
-                font-size: 1.8rem;
+            font-size: 1.8rem;
             }
             
             .section-subtitle {
@@ -1553,9 +1553,9 @@
             
             .hero-cta {
                 padding: 14px 28px;
-                font-size: 1rem;
-            }
-            
+            font-size: 1rem;
+        }
+
             .sport-options {
                 grid-template-columns: 1fr;
                 gap: 12px;
@@ -1610,17 +1610,17 @@
             }
             
             .proof-item {
-                justify-content: center;
-            }
+            justify-content: center;
+        }
             
             .how-it-works, .features-section {
                 padding: 60px 16px;
-            }
+        }
             
             .step-number {
                 width: 60px;
                 height: 60px;
-                font-size: 1.5rem;
+            font-size: 1.5rem;
             }
             
             .step-title {
@@ -1779,6 +1779,9 @@
         .recent-item-edit:hover { color: var(--primary); background: rgba(0, 255, 135, 0.1); }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FFmpeg.wasm for client-side video compression -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     {% if clerk_publishable_key %}
     <script
         async
@@ -1805,7 +1808,7 @@
                 <a href="/my-matches" class="nav-link">My Matches</a>
                 <div class="user-avatar" onclick="clerkOpenUserProfile()" title="Account">
                     <img id="user-avatar-img" src="" alt="Profile">
-                </div>
+            </div>
                 <button class="btn btn-ghost" onclick="clerkSignOut()">Sign Out</button>
             </div>
         </div>
@@ -1822,7 +1825,7 @@
             </video> -->
             <div class="hero-overlay"></div>
             <div class="hero-lines"></div>
-        </div>
+                        </div>
         <div class="hero-content">
             <div class="hero-badge">
                 <span>🎯</span>
@@ -1839,14 +1842,14 @@
                 Analyze Your Match
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
+                            </svg>
             </a>
-        </div>
+                        </div>
         <div class="scroll-indicator">
             <div class="court">
                 <div class="ball"></div>
-            </div>
-        </div>
+                    </div>
+                        </div>
     </section>
 
     <!-- Social Proof Bar -->
@@ -1855,15 +1858,15 @@
             <div class="proof-item">
                 <span class="proof-icon">📊</span>
                 <span class="proof-text"><strong>500+</strong> matches analyzed</span>
-            </div>
+                        </div>
             <div class="proof-item">
                 <span class="proof-icon">🎯</span>
                 <span class="proof-text"><strong>Pro-level</strong> insights</span>
-            </div>
+                    </div>
             <div class="proof-item">
                 <span class="proof-icon">⚡</span>
                 <span class="proof-text"><strong>Minutes</strong> not hours</span>
-            </div>
+                </div>
         </div>
     </section>
 
@@ -1873,23 +1876,23 @@
             <div class="section-label">How It Works</div>
             <h2 class="section-title">Three Steps to Better Squash</h2>
             <p class="section-subtitle">Upload your match video and get actionable insights within minutes.</p>
-        </div>
+                        </div>
         <div class="steps-container">
             <div class="step">
                 <div class="step-number">1</div>
                 <h3 class="step-title">Upload Your Video</h3>
                 <p class="step-desc">Drop in any match recording. We support all common video formats.</p>
-            </div>
+                        </div>
             <div class="step">
                 <div class="step-number">2</div>
                 <h3 class="step-title">AI Analyzes</h3>
                 <p class="step-desc">Our AI tracks player movement, court position, and shot patterns frame-by-frame.</p>
-            </div>
+                    </div>
             <div class="step">
                 <div class="step-number">3</div>
                 <h3 class="step-title">Get Insights</h3>
                 <p class="step-desc">Receive a detailed scorecard with T-dominance, fatigue analysis, and coaching tips.</p>
-            </div>
+                </div>
         </div>
     </section>
 
@@ -1899,7 +1902,7 @@
             <div class="section-label">Sample Results</div>
             <h2 class="section-title">See What You'll Get</h2>
             <p class="section-subtitle">Real analytics from an actual match analysis</p>
-        </div>
+                        </div>
         
         <div class="sample-results-container">
             <!-- Left: Player Detection Image -->
@@ -1907,7 +1910,7 @@
                 <div class="sample-frame-label">Player Detection</div>
                 <img src="/static/sample/players.jpg" alt="Player Detection Frame" class="sample-frame-img">
                 <div class="sample-frame-badge">91% Detection Accuracy</div>
-            </div>
+                        </div>
             
             <!-- Right: Analytics Preview -->
             <div class="sample-analytics">
@@ -1934,9 +1937,9 @@
                             <span class="t-dom-player p1">Player 1 <strong>46.5%</strong></span>
                             <span class="t-dom-player p2"><strong>53.5%</strong> Player 2</span>
                         </div>
-                    </div>
                 </div>
-                
+            </div>
+
                 <!-- Metric Cards Row -->
                 <div class="sample-metrics-row">
                     <div class="sample-metric">
@@ -1947,8 +1950,8 @@
                                 <span class="p1">9,023 ft</span>
                                 <span class="vs">vs</span>
                                 <span class="p2">9,494 ft</span>
-                            </div>
-                        </div>
+                </div>
+                    </div>
                     </div>
                     <div class="sample-metric">
                         <div class="sample-metric-icon">⚡</div>
@@ -1958,7 +1961,7 @@
                                 <span class="p1 highlight">4</span>
                                 <span class="vs">vs</span>
                                 <span class="p2">0</span>
-                            </div>
+                </div>
                         </div>
                     </div>
                     <div class="sample-metric">
@@ -1971,9 +1974,9 @@
                                 <span class="p2 positive">+5.9%</span>
                             </div>
                         </div>
-                    </div>
                 </div>
-                
+            </div>
+
                 <a href="#upload" class="sample-view-full">
                     Try It With Your Match
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
@@ -1991,53 +1994,53 @@
                 <div class="section-label">Get Started</div>
                 <h2 class="section-title">Upload Your Match</h2>
             </div>
-            <div class="upload-card">
-                <div class="upload-zone" id="uploadZone">
+        <div class="upload-card">
+            <div class="upload-zone" id="uploadZone">
                     <span class="upload-icon">🎬</span>
                     <h3>Drop your video here</h3>
-                    <p>or click to browse files</p>
+                <p>or click to browse files</p>
                     <button type="button" class="browse-btn">Choose Video</button>
-                    <input type="file" class="file-input" id="fileInput" accept=".mp4,.mov,.avi,.mkv,.m4v,.webm" multiple>
+                <input type="file" class="file-input" id="fileInput" accept=".mp4,.mov,.avi,.mkv,.m4v,.webm" multiple>
                     <p class="file-types">Supports MP4, MOV, AVI, MKV, M4V, WebM</p>
-                </div>
+            </div>
 
-                <div class="sport-selection">
+            <div class="sport-selection">
                     <span class="sport-label">🏆 Sport Type</span>
                     <div class="sport-options">
-                        <div class="sport-option">
-                            <input type="radio" name="sport" id="sport-squash" value="squash" checked>
-                            <label for="sport-squash">
+                    <div class="sport-option">
+                        <input type="radio" name="sport" id="sport-squash" value="squash" checked>
+                        <label for="sport-squash">
                                 <img src="/static/squash-ball.svg" alt="Squash" class="sport-icon-img">
-                                <span class="sport-name">Squash</span>
-                            </label>
-                        </div>
+                            <span class="sport-name">Squash</span>
+                        </label>
+                    </div>
                         <div class="sport-option coming-soon">
                             <input type="radio" name="sport" id="sport-padel" value="padel" disabled>
-                            <label for="sport-padel">
+                        <label for="sport-padel">
                                 <span class="sport-icon">🎾</span>
-                                <span class="sport-name">Padel</span>
+                            <span class="sport-name">Padel</span>
                                 <span class="coming-soon-badge">Coming Soon</span>
-                            </label>
-                        </div>
+                        </label>
                     </div>
                 </div>
-
-                <div class="file-list" id="fileList">
-                    <div id="fileItems"></div>
-                </div>
-
-                <div class="error-message" id="errorMessage"></div>
-
-                <button class="submit-btn" id="submitBtn" disabled>
-                    <span>🚀</span>
-                    <span>Start Analysis</span>
-                </button>
-
-                <button class="view-results-btn" id="viewResultsBtn">
-                    <span>📊</span>
-                    <span>View Score Card</span>
-                </button>
             </div>
+
+            <div class="file-list" id="fileList">
+                <div id="fileItems"></div>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+
+            <button class="submit-btn" id="submitBtn" disabled>
+                <span>🚀</span>
+                <span>Start Analysis</span>
+            </button>
+
+            <button class="view-results-btn" id="viewResultsBtn">
+                <span>📊</span>
+                    <span>View Score Card</span>
+            </button>
+        </div>
         </div>
     </section>
 
@@ -2092,7 +2095,7 @@
     <!-- Footer -->
     <footer class="footer">
         <p>Built with ❤️ by Ben Schippers</p>
-    </footer>
+        </footer>
 
     <!-- Edit Modal -->
     <div class="edit-modal" id="editModal">
@@ -2235,7 +2238,7 @@
             if (e.target.classList.contains('remove-file')) return;
             fileInput.click();
         });
-
+        
         const browseBtn = uploadZone.querySelector('.browse-btn');
         if (browseBtn) {
             browseBtn.addEventListener('click', (e) => {
@@ -2243,7 +2246,7 @@
                 fileInput.click();
             });
         }
-
+        
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
         uploadZone.addEventListener('dragover', (e) => {
@@ -2260,6 +2263,96 @@
             uploadZone.classList.remove('drag-over');
             handleFiles(e.dataTransfer.files);
         });
+
+        // FFmpeg instance for compression
+        let ffmpeg = null;
+        let ffmpegLoaded = false;
+        const COMPRESSION_THRESHOLD_MB = 100; // Compress files larger than 100MB
+        const USE_DIRECT_UPLOAD = true; // Enable direct-to-cloud upload
+
+        async function loadFFmpeg() {
+            if (ffmpegLoaded) return true;
+            
+            try {
+                const { FFmpeg } = FFmpegWASM;
+                const { fetchFile, toBlobURL } = FFmpegUtil;
+                
+                ffmpeg = new FFmpeg();
+                
+                // Load FFmpeg with WASM files from CDN
+                const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+                await ffmpeg.load({
+                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                });
+                
+                ffmpegLoaded = true;
+                console.log('FFmpeg loaded successfully');
+                return true;
+            } catch (error) {
+                console.error('Failed to load FFmpeg:', error);
+                return false;
+            }
+        }
+
+        async function compressVideo(file, progressCallback) {
+            if (!ffmpegLoaded) {
+                const loaded = await loadFFmpeg();
+                if (!loaded) {
+                    console.log('FFmpeg not available, skipping compression');
+                    return file;
+                }
+            }
+            
+            const { fetchFile } = FFmpegUtil;
+            
+            try {
+                const inputName = 'input' + file.name.substring(file.name.lastIndexOf('.'));
+                const outputName = 'output.mp4';
+                
+                // Write input file
+                await ffmpeg.writeFile(inputName, await fetchFile(file));
+                
+                // Set up progress tracking
+                ffmpeg.on('progress', ({ progress }) => {
+                    if (progressCallback) {
+                        progressCallback(Math.round(progress * 100));
+                    }
+                });
+                
+                // Compress: 720p, CRF 28, fast preset
+                await ffmpeg.exec([
+                    '-i', inputName,
+                    '-vf', 'scale=-2:720',  // Scale to 720p height, maintain aspect ratio
+                    '-c:v', 'libx264',
+                    '-preset', 'fast',
+                    '-crf', '28',
+                    '-c:a', 'aac',
+                    '-b:a', '128k',
+                    '-movflags', '+faststart',
+                    outputName
+                ]);
+                
+                // Read output
+                const data = await ffmpeg.readFile(outputName);
+                const compressedBlob = new Blob([data.buffer], { type: 'video/mp4' });
+                
+                // Clean up
+                await ffmpeg.deleteFile(inputName);
+                await ffmpeg.deleteFile(outputName);
+                
+                const compressedFile = new File([compressedBlob], file.name.replace(/\.[^.]+$/, '.mp4'), {
+                    type: 'video/mp4'
+                });
+                
+                console.log(`Compressed ${file.name}: ${(file.size/1024/1024).toFixed(1)}MB -> ${(compressedFile.size/1024/1024).toFixed(1)}MB`);
+                
+                return compressedFile;
+            } catch (error) {
+                console.error('Compression failed:', error);
+                return file; // Return original on failure
+            }
+        }
 
         submitBtn.addEventListener('click', async () => {
             // Require authentication before uploading
@@ -2280,10 +2373,147 @@
             document.querySelectorAll('.remove-file').forEach(btn => btn.disabled = true);
 
             for (let i = 0; i < selectedFiles.length; i++) {
+                if (USE_DIRECT_UPLOAD) {
+                    await uploadFileDirect(selectedFiles[i], i);
+                } else {
                 await uploadFile(selectedFiles[i], i);
+                }
             }
         });
 
+        // New direct upload function (uploads to Supabase Storage)
+        async function uploadFileDirect(file, index) {
+            const statusEl = document.getElementById(`status-${index}`);
+            const fileSizeMB = file.size / (1024 * 1024);
+            
+            let fileToUpload = file;
+            
+            // Compress large files
+            if (fileSizeMB > COMPRESSION_THRESHOLD_MB) {
+                statusEl.innerHTML = `
+                    <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}" style="background: var(--accent);"></div></div>
+                    <span style="font-size: 0.85rem; color: var(--accent); font-weight: 600; min-width: 80px;" id="percent-${index}">Compressing...</span>
+                `;
+                
+                try {
+                    fileToUpload = await compressVideo(file, (progress) => {
+                        const progressEl = document.getElementById(`progress-${index}`);
+                        const percentEl = document.getElementById(`percent-${index}`);
+                        if (progressEl) progressEl.style.width = progress + '%';
+                        if (percentEl) percentEl.textContent = `Compress ${progress}%`;
+                    });
+                } catch (e) {
+                    console.error('Compression error:', e);
+                    // Continue with original file
+                }
+            }
+            
+            statusEl.innerHTML = `
+                <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}"></div></div>
+                <span style="font-size: 0.85rem; color: var(--primary); font-weight: 600; min-width: 45px;" id="percent-${index}">0%</span>
+            `;
+
+            try {
+                // Get Clerk token for authentication
+                const headers = { 'Content-Type': 'application/json' };
+                if (clerkLoaded && Clerk.session) {
+                    try {
+                        const token = await Clerk.session.getToken();
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                    } catch (e) {
+                        console.log('Could not get Clerk token:', e);
+                    }
+                }
+
+                // Step 1: Initialize upload and get signed URL
+                const initResponse = await fetch('/api/upload/init', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        filename: fileToUpload.name,
+                        sport: getSelectedSport(),
+                        file_size: fileToUpload.size
+                    })
+                });
+
+                const initData = await initResponse.json();
+                if (!initResponse.ok) {
+                    throw new Error(initData.error || 'Failed to initialize upload');
+                }
+
+                const { job_id: jobId, upload_url: uploadUrl, upload_token: uploadToken } = initData;
+                
+                // Step 2: Upload directly to Supabase Storage
+                const progressEl = document.getElementById(`progress-${index}`);
+                const percentEl = document.getElementById(`percent-${index}`);
+                
+                await uploadToSupabase(fileToUpload, uploadUrl, uploadToken, (progress) => {
+                    if (progressEl) progressEl.style.width = progress + '%';
+                    if (percentEl) percentEl.textContent = Math.round(progress) + '%';
+                });
+                
+                // Step 3: Notify server that upload is complete
+                const completeResponse = await fetch(`/api/upload/complete/${jobId}`, {
+                    method: 'POST',
+                    headers: headers
+                });
+
+                const completeData = await completeResponse.json();
+                if (!completeResponse.ok) {
+                    throw new Error(completeData.error || 'Failed to complete upload');
+                }
+
+                uploadedJobs.push({ jobId, name: file.name, index });
+                
+                // Poll for processing progress
+                pollProgress(jobId, index);
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                statusEl.innerHTML = `<span class="file-item-badge error">Error</span>`;
+                showError(error.message);
+            }
+        }
+
+        async function uploadToSupabase(file, signedUrl, token, progressCallback) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable && progressCallback) {
+                        const progress = (e.loaded / e.total) * 100;
+                        progressCallback(progress);
+                    }
+                });
+                
+                xhr.addEventListener('load', () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Upload failed with status ${xhr.status}`));
+                    }
+                });
+                
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Upload failed'));
+                });
+                
+                xhr.addEventListener('abort', () => {
+                    reject(new Error('Upload aborted'));
+                });
+                
+                xhr.open('PUT', signedUrl);
+                xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+                if (token) {
+                    xhr.setRequestHeader('x-upsert', 'true');
+                }
+                xhr.send(file);
+            });
+        }
+
+        // Legacy upload function (uploads through server)
         async function uploadFile(file, index) {
             const statusEl = document.getElementById(`status-${index}`);
             
@@ -2410,7 +2640,7 @@
         viewResultsBtn.addEventListener('click', () => {
             if (completedJobs.length === 0) return;
             // Go to the first (or only) completed job
-            window.location.href = `/results/${completedJobs[0]}`;
+                    window.location.href = `/results/${completedJobs[0]}`;
         });
 
         // ============================================
@@ -2418,7 +2648,7 @@
         // ============================================
         const customNames = JSON.parse(localStorage.getItem('scoreCardNames') || '{}');
         let currentEditJobId = null;
-
+        
         async function loadRecentVideos() {
             const recentList = document.getElementById('recentList');
             
@@ -2495,14 +2725,14 @@
                 `;
             }
         }
-
+        
         function formatDuration(seconds) {
             if (!seconds) return '';
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${mins}m ${secs}s`;
         }
-
+        
         function formatDate(isoString) {
             if (!isoString) return '';
             const date = new Date(isoString);
@@ -2518,7 +2748,7 @@
             if (diffDays < 7) return `${diffDays}d ago`;
             return date.toLocaleDateString();
         }
-
+        
         function openEditModal(event, jobId, currentName) {
             event.stopPropagation();
             event.preventDefault();
@@ -2527,12 +2757,12 @@
             document.getElementById('editModal').classList.add('active');
             document.getElementById('editNameInput').focus();
         }
-
+        
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('active');
             currentEditJobId = null;
         }
-
+        
         function saveEditName() {
             const newName = document.getElementById('editNameInput').value.trim();
             if (newName && currentEditJobId) {
@@ -2542,20 +2772,20 @@
             }
             closeEditModal();
         }
-
+        
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeEditModal();
             if (e.key === 'Enter' && document.getElementById('editModal').classList.contains('active')) {
                 saveEditName();
             }
         });
-
+        
         document.getElementById('editModal').addEventListener('click', (e) => {
             if (e.target.id === 'editModal') closeEditModal();
         });
-
+        
         loadRecentVideos();
-
+        
         // ============================================
         // Clerk Authentication
         // ============================================

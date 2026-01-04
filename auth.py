@@ -247,3 +247,4 @@ def login_optional(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
