@@ -1800,7 +1800,7 @@
             <span>Squash.AI</span>
         </a>
         <div class="nav-actions">
-            <div id="auth-buttons" class="auth-hidden">
+            <div id="auth-buttons">
                 <button class="btn btn-ghost" onclick="clerkSignIn()">Sign In</button>
                 <button class="btn btn-primary" onclick="clerkSignUp()">Sign Up</button>
             </div>
@@ -2837,12 +2837,16 @@
         function clerkSignIn() {
             if (clerkLoaded && Clerk.openSignIn) {
                 Clerk.openSignIn({});
+            } else {
+                alert('Login is loading... Please wait a moment and try again, or refresh the page.');
             }
         }
 
         function clerkSignUp() {
             if (clerkLoaded && Clerk.openSignUp) {
                 Clerk.openSignUp({});
+            } else {
+                alert('Sign up is loading... Please wait a moment and try again, or refresh the page.');
             }
         }
 
