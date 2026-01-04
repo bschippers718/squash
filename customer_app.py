@@ -618,10 +618,10 @@ def process_video_from_cloud(job_id, storage_path, sport='squash'):
             output_dir=str(output_dir),
             progress_callback=progress_callback,
             sport=sport,
-            confidence=sport_config['confidence'],
-            ball_confidence=sport_config['ball_confidence'],
-            min_person_height_ratio=sport_config['min_person_height_ratio'],
-            court_margin=sport_config['court_margin']
+            confidence=sport_config.get('player_conf_threshold', 0.5),
+            ball_confidence=sport_config.get('ball_conf_threshold', 0.3),
+            min_person_height_ratio=sport_config.get('min_person_height_ratio', 0.15),
+            court_margin=sport_config.get('court_margin', 0.1)
         )
         
         if result.get('success'):
