@@ -1779,9 +1779,6 @@
         .recent-item-edit:hover { color: var(--primary); background: rgba(0, 255, 135, 0.1); }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FFmpeg.wasm for client-side video compression -->
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     {% if clerk_publishable_key %}
     <script
         async
@@ -2264,95 +2261,11 @@
             handleFiles(e.dataTransfer.files);
         });
 
-        // FFmpeg instance for compression
-        let ffmpeg = null;
-        let ffmpegLoaded = false;
-        const COMPRESSION_THRESHOLD_MB = 100; // Compress files larger than 100MB
-        const USE_DIRECT_UPLOAD = true; // Enable direct-to-cloud upload
-
-        async function loadFFmpeg() {
-            if (ffmpegLoaded) return true;
-            
-            try {
-                const { FFmpeg } = FFmpegWASM;
-                const { fetchFile, toBlobURL } = FFmpegUtil;
-                
-                ffmpeg = new FFmpeg();
-                
-                // Load FFmpeg with WASM files from CDN
-                const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-                await ffmpeg.load({
-                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                });
-                
-                ffmpegLoaded = true;
-                console.log('FFmpeg loaded successfully');
-                return true;
-            } catch (error) {
-                console.error('Failed to load FFmpeg:', error);
-                return false;
-            }
-        }
-
-        async function compressVideo(file, progressCallback) {
-            if (!ffmpegLoaded) {
-                const loaded = await loadFFmpeg();
-                if (!loaded) {
-                    console.log('FFmpeg not available, skipping compression');
-                    return file;
-                }
-            }
-            
-            const { fetchFile } = FFmpegUtil;
-            
-            try {
-                const inputName = 'input' + file.name.substring(file.name.lastIndexOf('.'));
-                const outputName = 'output.mp4';
-                
-                // Write input file
-                await ffmpeg.writeFile(inputName, await fetchFile(file));
-                
-                // Set up progress tracking
-                ffmpeg.on('progress', ({ progress }) => {
-                    if (progressCallback) {
-                        progressCallback(Math.round(progress * 100));
-                    }
-                });
-                
-                // Compress: 720p, CRF 28, fast preset
-                await ffmpeg.exec([
-                    '-i', inputName,
-                    '-vf', 'scale=-2:720',  // Scale to 720p height, maintain aspect ratio
-                    '-c:v', 'libx264',
-                    '-preset', 'fast',
-                    '-crf', '28',
-                    '-c:a', 'aac',
-                    '-b:a', '128k',
-                    '-movflags', '+faststart',
-                    outputName
-                ]);
-                
-                // Read output
-                const data = await ffmpeg.readFile(outputName);
-                const compressedBlob = new Blob([data.buffer], { type: 'video/mp4' });
-                
-                // Clean up
-                await ffmpeg.deleteFile(inputName);
-                await ffmpeg.deleteFile(outputName);
-                
-                const compressedFile = new File([compressedBlob], file.name.replace(/\.[^.]+$/, '.mp4'), {
-                    type: 'video/mp4'
-                });
-                
-                console.log(`Compressed ${file.name}: ${(file.size/1024/1024).toFixed(1)}MB -> ${(compressedFile.size/1024/1024).toFixed(1)}MB`);
-                
-                return compressedFile;
-            } catch (error) {
-                console.error('Compression failed:', error);
-                return file; // Return original on failure
-            }
-        }
+        // Direct upload to Supabase Storage is disabled for now due to CORS/signing issues
+        // Using server-side upload which works reliably for files up to ~300MB
+        // For very large videos (>500MB), users should compress locally before uploading
+        const USE_DIRECT_UPLOAD = false; // Disabled - using server upload
+        const LARGE_FILE_WARNING_MB = 300; // Warn users about large files (Railway timeout)
 
         submitBtn.addEventListener('click', async () => {
             // Require authentication before uploading
@@ -2390,27 +2303,20 @@
             const statusEl = document.getElementById(`status-${index}`);
             const fileSizeMB = file.size / (1024 * 1024);
             
-            let fileToUpload = file;
-            
-            // Compress large files
-            if (fileSizeMB > COMPRESSION_THRESHOLD_MB) {
-                statusEl.innerHTML = `
-                    <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}" style="background: var(--accent);"></div></div>
-                    <span style="font-size: 0.85rem; color: var(--accent); font-weight: 600; min-width: 80px;" id="percent-${index}">Compressing...</span>
-                `;
-                
-                try {
-                    fileToUpload = await compressVideo(file, (progress) => {
-                        const progressEl = document.getElementById(`progress-${index}`);
-                        const percentEl = document.getElementById(`percent-${index}`);
-                        if (progressEl) progressEl.style.width = progress + '%';
-                        if (percentEl) percentEl.textContent = `Compress ${progress}%`;
-                    });
-                } catch (e) {
-                    console.error('Compression error:', e);
-                    // Continue with original file
+            // Warn about very large files
+            if (fileSizeMB > LARGE_FILE_WARNING_MB) {
+                const proceed = confirm(
+                    `This file is ${fileSizeMB.toFixed(0)}MB which is quite large.\n\n` +
+                    `For faster uploads, consider compressing the video first using HandBrake or similar tools.\n\n` +
+                    `Continue with upload anyway?`
+                );
+                if (!proceed) {
+                    statusEl.innerHTML = `<span class="file-item-badge pending">Cancelled</span>`;
+                    return;
                 }
             }
+            
+            let fileToUpload = file;
             
             statusEl.innerHTML = `
                 <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}"></div></div>
@@ -2496,30 +2402,49 @@
                     if (xhr.status >= 200 && xhr.status < 300) {
                         resolve();
                     } else {
-                        reject(new Error(`Upload failed with status ${xhr.status}`));
+                        console.error('Upload response:', xhr.status, xhr.responseText);
+                        reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
                     }
                 });
                 
                 xhr.addEventListener('error', () => {
-                    reject(new Error('Upload failed'));
+                    reject(new Error('Upload failed - network error'));
                 });
                 
                 xhr.addEventListener('abort', () => {
                     reject(new Error('Upload aborted'));
                 });
                 
-                xhr.open('PUT', signedUrl);
-                xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-                if (token) {
-                    xhr.setRequestHeader('x-upsert', 'true');
-                }
+                // Supabase signed upload URLs (createSignedUploadUrl) expect POST
+                xhr.open('POST', signedUrl);
+                
+                // Set content type based on file
+                const contentType = file.type || 'video/mp4';
+                xhr.setRequestHeader('Content-Type', contentType);
+                
+                // Send the file directly as body
                 xhr.send(file);
             });
         }
 
-        // Legacy upload function (uploads through server)
+        // Server upload function (uploads through Flask server)
         async function uploadFile(file, index) {
             const statusEl = document.getElementById(`status-${index}`);
+            const fileSizeMB = file.size / (1024 * 1024);
+            
+            // Warn about large files that may timeout on server
+            if (fileSizeMB > LARGE_FILE_WARNING_MB) {
+                const proceed = confirm(
+                    `This file is ${fileSizeMB.toFixed(0)}MB which is quite large.\n\n` +
+                    `Files over ${LARGE_FILE_WARNING_MB}MB may timeout during upload.\n\n` +
+                    `For best results, compress the video first using HandBrake (free) or similar tools to reduce the file size.\n\n` +
+                    `Continue with upload anyway?`
+                );
+                if (!proceed) {
+                    statusEl.innerHTML = `<span class="file-item-badge pending">Cancelled</span>`;
+                    return;
+                }
+            }
             
             statusEl.innerHTML = `
                 <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}"></div></div>
@@ -2532,29 +2457,55 @@
 
             try {
                 // Get Clerk token for authentication (enables auto-save after processing)
-                const headers = {};
+                let authToken = null;
                 if (clerkLoaded && Clerk.session) {
                     try {
-                        const token = await Clerk.session.getToken();
-                        if (token) {
-                            headers['Authorization'] = `Bearer ${token}`;
-                        }
+                        authToken = await Clerk.session.getToken();
                     } catch (e) {
                         console.log('Could not get Clerk token:', e);
                     }
                 }
 
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    headers: headers,
-                    body: formData
+                // Use XMLHttpRequest for upload progress tracking
+                const data = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    const progressEl = document.getElementById(`progress-${index}`);
+                    const percentEl = document.getElementById(`percent-${index}`);
+                    
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const percent = Math.round((e.loaded / e.total) * 100);
+                            if (progressEl) progressEl.style.width = percent + '%';
+                            if (percentEl) percentEl.textContent = percent + '%';
+                        }
+                    });
+                    
+                    xhr.addEventListener('load', () => {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                resolve(response);
+                            } else {
+                                reject(new Error(response.error || `Upload failed (${xhr.status})`));
+                            }
+                        } catch (e) {
+                            reject(new Error('Invalid server response'));
+                        }
+                    });
+                    
+                    xhr.addEventListener('error', () => reject(new Error('Network error')));
+                    xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+                    xhr.addEventListener('timeout', () => reject(new Error('Upload timed out - file may be too large')));
+                    
+                    xhr.open('POST', '/upload');
+                    xhr.timeout = 300000; // 5 minute timeout
+                    
+                    if (authToken) {
+                        xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+                    }
+                    
+                    xhr.send(formData);
                 });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Upload failed');
-                }
 
                 const jobId = data.job_id;
                 uploadedJobs.push({ jobId, name: file.name, index });
