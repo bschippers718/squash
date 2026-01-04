@@ -1779,6 +1779,8 @@
         .recent-item-edit:hover { color: var(--primary); background: rgba(0, 255, 135, 0.1); }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FFmpeg.wasm for client-side video compression (hosted locally to avoid CORS) -->
+    <script src="/static/ffmpeg/ffmpeg.js"></script>
     {% if clerk_publishable_key %}
     <script
         async
@@ -2261,11 +2263,110 @@
             handleFiles(e.dataTransfer.files);
         });
 
-        // Direct upload to Supabase Storage is disabled for now due to CORS/signing issues
-        // Using server-side upload which works reliably for files up to ~300MB
-        // For very large videos (>500MB), users should compress locally before uploading
-        const USE_DIRECT_UPLOAD = false; // Disabled - using server upload
-        const LARGE_FILE_WARNING_MB = 300; // Warn users about large files (Railway timeout)
+        // Configuration for large file handling
+        const USE_DIRECT_UPLOAD = true; // Enable direct-to-cloud upload with compression
+        const COMPRESSION_THRESHOLD_MB = 100; // Compress files larger than 100MB
+        const LARGE_FILE_WARNING_MB = 500; // Warn users about very large files
+        
+        // FFmpeg instance for client-side compression
+        let ffmpeg = null;
+        let ffmpegLoading = false;
+        
+        async function loadFFmpeg() {
+            if (ffmpeg) return true;
+            if (ffmpegLoading) {
+                // Wait for existing load to complete
+                while (ffmpegLoading) {
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                return !!ffmpeg;
+            }
+            
+            ffmpegLoading = true;
+            try {
+                const { createFFmpeg, fetchFile } = FFmpeg;
+                ffmpeg = createFFmpeg({
+                    log: false,
+                    corePath: '/static/ffmpeg/ffmpeg-core.js'
+                });
+                await ffmpeg.load();
+                console.log('FFmpeg loaded successfully');
+                ffmpegLoading = false;
+                return true;
+            } catch (error) {
+                console.error('Failed to load FFmpeg:', error);
+                ffmpegLoading = false;
+                ffmpeg = null;
+                return false;
+            }
+        }
+        
+        async function compressVideo(file, progressCallback) {
+            if (!ffmpeg) {
+                const loaded = await loadFFmpeg();
+                if (!loaded) {
+                    console.log('FFmpeg not available, skipping compression');
+                    return file;
+                }
+            }
+            
+            try {
+                const { fetchFile } = FFmpeg;
+                const inputName = 'input' + getFileExtension(file.name);
+                const outputName = 'output.mp4';
+                
+                // Write input file to FFmpeg filesystem
+                ffmpeg.FS('writeFile', inputName, await fetchFile(file));
+                
+                // Set up progress tracking
+                ffmpeg.setProgress(({ ratio }) => {
+                    if (progressCallback && ratio >= 0) {
+                        progressCallback(Math.round(ratio * 100));
+                    }
+                });
+                
+                // Compress: 720p max height, CRF 28, fast preset
+                await ffmpeg.run(
+                    '-i', inputName,
+                    '-vf', 'scale=-2:\'min(720,ih)\'',  // Scale to max 720p height
+                    '-c:v', 'libx264',
+                    '-preset', 'fast',
+                    '-crf', '28',
+                    '-c:a', 'aac',
+                    '-b:a', '128k',
+                    '-movflags', '+faststart',
+                    outputName
+                );
+                
+                // Read output file
+                const data = ffmpeg.FS('readFile', outputName);
+                
+                // Clean up
+                ffmpeg.FS('unlink', inputName);
+                ffmpeg.FS('unlink', outputName);
+                
+                const compressedBlob = new Blob([data.buffer], { type: 'video/mp4' });
+                const compressedFile = new File(
+                    [compressedBlob],
+                    file.name.replace(/\.[^.]+$/, '_compressed.mp4'),
+                    { type: 'video/mp4' }
+                );
+                
+                const originalMB = (file.size / (1024 * 1024)).toFixed(1);
+                const compressedMB = (compressedFile.size / (1024 * 1024)).toFixed(1);
+                console.log(`Compressed: ${originalMB}MB → ${compressedMB}MB`);
+                
+                return compressedFile;
+            } catch (error) {
+                console.error('Compression failed:', error);
+                return file; // Return original on failure
+            }
+        }
+        
+        function getFileExtension(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            return ext ? '.' + ext : '.mp4';
+        }
 
         submitBtn.addEventListener('click', async () => {
             // Require authentication before uploading
@@ -2298,25 +2399,57 @@
             }
         });
 
-        // New direct upload function (uploads to Supabase Storage)
+        // Direct upload function (compresses large files, uploads to Supabase Storage)
         async function uploadFileDirect(file, index) {
             const statusEl = document.getElementById(`status-${index}`);
             const fileSizeMB = file.size / (1024 * 1024);
             
-            // Warn about very large files
-            if (fileSizeMB > LARGE_FILE_WARNING_MB) {
+            let fileToUpload = file;
+            
+            // Step 1: Compress large files
+            if (fileSizeMB > COMPRESSION_THRESHOLD_MB) {
+                statusEl.innerHTML = `
+                    <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}" style="background: var(--accent);"></div></div>
+                    <span style="font-size: 0.85rem; color: var(--accent); font-weight: 600; min-width: 100px;" id="percent-${index}">Loading compressor...</span>
+                `;
+                
+                const progressEl = document.getElementById(`progress-${index}`);
+                const percentEl = document.getElementById(`percent-${index}`);
+                
+                try {
+                    // Pre-load FFmpeg
+                    const loaded = await loadFFmpeg();
+                    if (loaded) {
+                        percentEl.textContent = 'Compressing...';
+                        
+                        fileToUpload = await compressVideo(file, (progress) => {
+                            if (progressEl) progressEl.style.width = progress + '%';
+                            if (percentEl) percentEl.textContent = `Compressing ${progress}%`;
+                        });
+                        
+                        const newSizeMB = (fileToUpload.size / (1024 * 1024)).toFixed(1);
+                        console.log(`Compression complete: ${fileSizeMB.toFixed(1)}MB → ${newSizeMB}MB`);
+                    } else {
+                        console.log('FFmpeg not available, uploading original file');
+                    }
+                } catch (e) {
+                    console.error('Compression error:', e);
+                    // Continue with original file
+                }
+            }
+            
+            // Check if compressed file is still very large
+            const finalSizeMB = fileToUpload.size / (1024 * 1024);
+            if (finalSizeMB > LARGE_FILE_WARNING_MB) {
                 const proceed = confirm(
-                    `This file is ${fileSizeMB.toFixed(0)}MB which is quite large.\n\n` +
-                    `For faster uploads, consider compressing the video first using HandBrake or similar tools.\n\n` +
-                    `Continue with upload anyway?`
+                    `This file is ${finalSizeMB.toFixed(0)}MB which is still quite large.\n\n` +
+                    `Upload may take a while. Continue?`
                 );
                 if (!proceed) {
                     statusEl.innerHTML = `<span class="file-item-badge pending">Cancelled</span>`;
                     return;
                 }
             }
-            
-            let fileToUpload = file;
             
             statusEl.innerHTML = `
                 <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}"></div></div>
@@ -2337,12 +2470,12 @@
                     }
                 }
 
-                // Step 1: Initialize upload and get signed URL
+                // Step 2: Initialize upload and get signed URL
                 const initResponse = await fetch('/api/upload/init', {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify({
-                        filename: fileToUpload.name,
+                        filename: file.name, // Use original filename for tracking
                         sport: getSelectedSport(),
                         file_size: fileToUpload.size
                     })
@@ -2355,16 +2488,27 @@
 
                 const { job_id: jobId, upload_url: uploadUrl, upload_token: uploadToken } = initData;
                 
-                // Step 2: Upload directly to Supabase Storage
+                // Step 3: Upload directly to Supabase Storage
                 const progressEl = document.getElementById(`progress-${index}`);
                 const percentEl = document.getElementById(`percent-${index}`);
                 
-                await uploadToSupabase(fileToUpload, uploadUrl, uploadToken, (progress) => {
-                    if (progressEl) progressEl.style.width = progress + '%';
-                    if (percentEl) percentEl.textContent = Math.round(progress) + '%';
-                });
+                try {
+                    await uploadToSupabase(fileToUpload, uploadUrl, uploadToken, (progress) => {
+                        if (progressEl) progressEl.style.width = progress + '%';
+                        if (percentEl) percentEl.textContent = Math.round(progress) + '%';
+                    });
+                } catch (uploadError) {
+                    // Direct upload failed - fall back to server upload
+                    console.warn('Direct upload failed, falling back to server upload:', uploadError);
+                    if (percentEl) percentEl.textContent = 'Retrying...';
+                    if (progressEl) progressEl.style.width = '0%';
+                    
+                    // Use server upload as fallback
+                    await uploadFile(fileToUpload, index);
+                    return; // uploadFile handles the rest
+                }
                 
-                // Step 3: Notify server that upload is complete
+                // Step 4: Notify server that upload is complete
                 const completeResponse = await fetch(`/api/upload/complete/${jobId}`, {
                     method: 'POST',
                     headers: headers
@@ -2382,8 +2526,14 @@
 
             } catch (error) {
                 console.error('Upload error:', error);
-                statusEl.innerHTML = `<span class="file-item-badge error">Error</span>`;
-                showError(error.message);
+                // If direct upload completely fails, try server upload as last resort
+                console.log('Attempting server upload as fallback...');
+                try {
+                    await uploadFile(file, index);
+                } catch (fallbackError) {
+                    statusEl.innerHTML = `<span class="file-item-badge error">Error</span>`;
+                    showError('Upload failed. Please try a smaller file or compress your video first.');
+                }
             }
         }
 
@@ -2402,8 +2552,9 @@
                     if (xhr.status >= 200 && xhr.status < 300) {
                         resolve();
                     } else {
-                        console.error('Upload response:', xhr.status, xhr.responseText);
-                        reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+                        console.error('Supabase upload failed:', xhr.status, xhr.responseText);
+                        // Fall back to server upload if direct upload fails
+                        reject(new Error(`Direct upload failed (${xhr.status}). Will retry through server.`));
                     }
                 });
                 
@@ -2415,36 +2566,20 @@
                     reject(new Error('Upload aborted'));
                 });
                 
-                // Supabase signed upload URLs (createSignedUploadUrl) expect POST
-                xhr.open('POST', signedUrl);
+                // Supabase signed upload URLs use PUT method
+                xhr.open('PUT', signedUrl);
                 
-                // Set content type based on file
-                const contentType = file.type || 'video/mp4';
-                xhr.setRequestHeader('Content-Type', contentType);
+                // Set content type - for videos, use application/octet-stream for reliability
+                xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
                 
                 // Send the file directly as body
                 xhr.send(file);
             });
         }
 
-        // Server upload function (uploads through Flask server)
+        // Server upload function (uploads through Flask server - used as fallback)
         async function uploadFile(file, index) {
             const statusEl = document.getElementById(`status-${index}`);
-            const fileSizeMB = file.size / (1024 * 1024);
-            
-            // Warn about large files that may timeout on server
-            if (fileSizeMB > LARGE_FILE_WARNING_MB) {
-                const proceed = confirm(
-                    `This file is ${fileSizeMB.toFixed(0)}MB which is quite large.\n\n` +
-                    `Files over ${LARGE_FILE_WARNING_MB}MB may timeout during upload.\n\n` +
-                    `For best results, compress the video first using HandBrake (free) or similar tools to reduce the file size.\n\n` +
-                    `Continue with upload anyway?`
-                );
-                if (!proceed) {
-                    statusEl.innerHTML = `<span class="file-item-badge pending">Cancelled</span>`;
-                    return;
-                }
-            }
             
             statusEl.innerHTML = `
                 <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}"></div></div>
