@@ -1356,8 +1356,10 @@
                     const matchControl = analytics.match_control;
                     if (!matchControl) return '';
                     const tierClass = (matchControl.tier || '').toLowerCase().replace(' ', '-');
-                    const winnerName = matchControl.winner === 'Player 1' ? p1 : 
-                                       matchControl.winner === 'Player 2' ? p2 : matchControl.winner;
+                    const p1Name = p1.name || 'Player 1';
+                    const p2Name = p2.name || 'Player 2';
+                    const winnerName = matchControl.winner === 'Player 1' ? p1Name : 
+                                       matchControl.winner === 'Player 2' ? p2Name : matchControl.winner;
                     return `
                     <div class="match-control-card">
                         <div class="match-control-title">Match Control Index</div>
@@ -1366,7 +1368,7 @@
                             <span class="tier-badge ${tierClass}">${matchControl.tier}</span>
                             ${winnerName}
                         </div>
-                        <div class="match-control-summary">${matchControl.summary?.replace(/Player 1/g, p1).replace(/Player 2/g, p2) || ''}</div>
+                        <div class="match-control-summary">${matchControl.summary?.replace(/Player 1/g, p1Name).replace(/Player 2/g, p2Name) || ''}</div>
                     </div>`;
                 })()}
 
