@@ -1352,7 +1352,7 @@
                         </div>
                 
                 <!-- Match Control Score -->
-                \${(() => {
+                ${(() => {
                     const matchControl = analytics.match_control;
                     if (!matchControl) return '';
                     const tierClass = (matchControl.tier || '').toLowerCase().replace(' ', '-');
@@ -1361,12 +1361,12 @@
                     return `
                     <div class="match-control-card">
                         <div class="match-control-title">Match Control Index</div>
-                        <div class="match-control-score">\${matchControl.index}</div>
+                        <div class="match-control-score">${matchControl.index}</div>
                         <div class="match-control-winner">
-                            <span class="tier-badge \${tierClass}">\${matchControl.tier}</span>
-                            \${winnerName}
+                            <span class="tier-badge ${tierClass}">${matchControl.tier}</span>
+                            ${winnerName}
                         </div>
-                        <div class="match-control-summary">\${matchControl.summary?.replace(/Player 1/g, p1).replace(/Player 2/g, p2) || ''}</div>
+                        <div class="match-control-summary">${matchControl.summary?.replace(/Player 1/g, p1).replace(/Player 2/g, p2) || ''}</div>
                     </div>`;
                 })()}
 
