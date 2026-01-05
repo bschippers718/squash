@@ -125,22 +125,24 @@ def process_video_task(job_id, video_path, sport='squash'):
             )
             print(f"[{job_id}] Processing completed successfully!", flush=True)
             
-            # Auto-save to Supabase if user was logged in
+            # Upload player image to Supabase (for OG sharing)
             job = get_job(job_id)
             user_id = job.get('user_id')
-            if user_id:
-                try:
-                    from supabase_client import save_match, upload_player_image
-                    
-                    analytics = result.get('squash_analytics', {})
-                    
-                    # Upload player image
-                    players_image_url = None
-                    output_dir = RESULTS_FOLDER / job_id
-                    players_images = list(output_dir.glob("*_players.jpg"))
-                    if players_images:
-                        players_image_url = upload_player_image(job_id, str(players_images[0]))
-                    
+            try:
+                from supabase_client import save_match, upload_player_image
+                
+                analytics = result.get('squash_analytics', {})
+                
+                # Always upload player image for OG sharing
+                players_image_url = None
+                output_dir = RESULTS_FOLDER / job_id
+                players_images = list(output_dir.glob("*_players.jpg"))
+                if players_images:
+                    players_image_url = upload_player_image(job_id, str(players_images[0]))
+                    print(f"[{job_id}] Uploaded player image: {players_image_url}", flush=True)
+                
+                # Auto-save to Supabase if user was logged in
+                if user_id and players_image_url:
                     # Get player names
                     player1_name = analytics.get('player1', {}).get('name')
                     player2_name = analytics.get('player2', {}).get('name')
@@ -157,8 +159,8 @@ def process_video_task(job_id, video_path, sport='squash'):
                         player2_name=player2_name
                     )
                     print(f"[{job_id}] Auto-saved to Supabase for user {user_id}", flush=True)
-                except Exception as e:
-                    print(f"[{job_id}] Auto-save to Supabase failed: {e}", flush=True)
+            except Exception as e:
+                print(f"[{job_id}] Post-processing error: {e}", flush=True)
         else:
             error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
             print(f"[{job_id}] Processing failed: {error_msg}", flush=True)
@@ -640,30 +642,33 @@ def process_video_from_cloud(job_id, storage_path, sport='squash'):
                 job = get_job(job_id)
                 user_id = job.get('user_id')
                 
-                # Find and upload player image
+                # Find and upload player image (always upload for OG sharing, even without user)
                 players_images = list(output_dir.glob('*_players.jpg'))
-                if players_images and user_id:
+                players_image_url = None
+                if players_images:
                     players_image_url = upload_player_image(job_id, str(players_images[0]))
                     if players_image_url:
                         update_job_db(job_id, players_image_url=players_image_url)
+                        print(f"[{job_id}] Uploaded player image: {players_image_url}")
+                
+                # Auto-save to matches (only if logged in)
+                if user_id and players_image_url:
+                    from supabase_client import save_match, check_match_saved
+                    if not check_match_saved(job_id, user_id):
+                        analytics = result.get('squash_analytics', {})
+                        p1_name = analytics.get('player1', {}).get('name', 'Player 1')
+                        p2_name = analytics.get('player2', {}).get('name', 'Player 2')
                         
-                        # Auto-save to matches
-                        from supabase_client import save_match, check_match_saved
-                        if not check_match_saved(job_id, user_id):
-                            analytics = result.get('squash_analytics', {})
-                            p1_name = analytics.get('player1', {}).get('name', 'Player 1')
-                            p2_name = analytics.get('player2', {}).get('name', 'Player 2')
-                            
-                            save_match(
-                                user_id=user_id,
-                                job_id=job_id,
-                                filename=filename,
-                                analytics=analytics,
-                                sport=sport,
-                                players_image_url=players_image_url,
-                                player1_name=p1_name,
-                                player2_name=p2_name
-                            )
+                        save_match(
+                            user_id=user_id,
+                            job_id=job_id,
+                            filename=filename,
+                            analytics=analytics,
+                            sport=sport,
+                            players_image_url=players_image_url,
+                            player1_name=p1_name,
+                            player2_name=p2_name
+                        )
             except Exception as e:
                 print(f"[{job_id}] Error in post-processing: {e}")
             
@@ -783,14 +788,15 @@ def results_page(job_id):
     if not job:
         job = load_job_from_disk(job_id)
     
-    # If still not found, try to load from Supabase (for saved matches)
+    # If still not found, try to load from Supabase (matches or job_queue)
     from_supabase = False
     if not job:
         try:
-            from supabase_client import get_match_by_job_id
+            from supabase_client import get_match_by_job_id, get_supabase_client
+            
+            # First try saved matches
             match = get_match_by_job_id(job_id)
             if match:
-                # Reconstruct job from Supabase data
                 analytics = match.get('analytics', {})
                 job = {
                     'id': job_id,
@@ -801,6 +807,23 @@ def results_page(job_id):
                     'players_image_url': match.get('players_image_url')
                 }
                 from_supabase = True
+            else:
+                # Try job_queue for processed but not saved jobs
+                supabase = get_supabase_client()
+                if supabase:
+                    result = supabase.table('job_queue').select('*').eq('job_id', job_id).execute()
+                    if result.data:
+                        queue_job = result.data[0]
+                        analytics = queue_job.get('analytics', {})
+                        job = {
+                            'id': job_id,
+                            'filename': queue_job.get('filename', job_id),
+                            'status': queue_job.get('status', 'completed'),
+                            'result': {'squash_analytics': analytics},
+                            'from_supabase': True,
+                            'players_image_url': queue_job.get('players_image_url')
+                        }
+                        from_supabase = True
         except Exception as e:
             print(f"Error loading from Supabase: {e}")
     
@@ -812,19 +835,19 @@ def results_page(job_id):
     # Clean up video name for display
     clean_name = video_name.replace('_', ' ').replace(f"{job_id} ", "")
     
-    # Find the players image for OG preview
+    # Find the players image for OG preview (prefer Supabase URL for absolute paths)
     og_image = None
-    if from_supabase and job.get('players_image_url'):
-        og_image = job.get('players_image_url')
+    players_image_url = job.get('players_image_url')
+    
+    if players_image_url:
+        # Use Supabase URL (works for social sharing)
+        og_image = players_image_url
     else:
+        # Fallback to local file (only works locally, not on production)
         result_dir = RESULTS_FOLDER / job_id
         players_images = list(result_dir.glob("*_players.jpg"))
-        og_image = f"/results/{job_id}/files/{players_images[0].name}" if players_images else None
-    
-    # Get players_image_url for display (prefer Supabase URL)
-    players_image_url = None
-    if job.get('players_image_url'):
-        players_image_url = job.get('players_image_url')
+        if players_images:
+            og_image = f"/results/{job_id}/files/{players_images[0].name}"
     
     # Extract match control for dynamic OG description
     analytics = job.get('result', {}).get('squash_analytics', {})

@@ -11,7 +11,11 @@
     <meta property="og:title" content="{{ og_title or 'Match Analysis' }} | Squash.AI">
     <meta property="og:description" content="{{ og_description or 'AI-powered squash match analysis' }}">
     {% if og_image %}
+    {% if og_image.startswith('http') %}
+    <meta property="og:image" content="{{ og_image }}">
+    {% else %}
     <meta property="og:image" content="{{ request.url_root[:-1] }}{{ og_image }}">
+    {% endif %}
     {% endif %}
     <meta property="og:url" content="{{ request.url }}">
     <meta property="og:site_name" content="Squash.AI">
@@ -21,7 +25,11 @@
     <meta name="twitter:title" content="{{ og_title or 'Match Analysis' }} | Squash.AI">
     <meta name="twitter:description" content="{{ og_description or 'AI-powered squash match analysis' }}">
     {% if og_image %}
+    {% if og_image.startswith('http') %}
+    <meta name="twitter:image" content="{{ og_image }}">
+    {% else %}
     <meta name="twitter:image" content="{{ request.url_root[:-1] }}{{ og_image }}">
+    {% endif %}
     {% endif %}
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
