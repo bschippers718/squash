@@ -975,6 +975,36 @@ def get_results_api(job_id):
     if not job:
         job = load_job_from_disk(job_id)
     
+    # If still not found, try to load from Supabase job_queue or matches
+    if not job:
+        try:
+            from supabase_client import get_job_by_job_id, get_match_by_job_id
+            
+            # First try job_queue (for recent direct uploads)
+            db_job = get_job_by_job_id(job_id)
+            if db_job and db_job.get('analytics'):
+                job = {
+                    'id': job_id,
+                    'filename': db_job.get('filename', ''),
+                    'status': db_job.get('status', 'completed'),
+                    'sport': db_job.get('sport', 'squash'),
+                    'result': {'squash_analytics': db_job.get('analytics', {})}
+                }
+            
+            # Also try matches table (for saved matches)
+            if not job:
+                match = get_match_by_job_id(job_id)
+                if match:
+                    job = {
+                        'id': job_id,
+                        'filename': match.get('filename', ''),
+                        'status': 'completed',
+                        'sport': match.get('sport', 'squash'),
+                        'result': {'squash_analytics': match.get('analytics', {})}
+                    }
+        except Exception as e:
+            print(f"Error loading job from Supabase: {e}")
+    
     if not job:
         return jsonify({'error': 'Job not found'}), 404
     
