@@ -2205,13 +2205,18 @@
             const result = analyticsData?.result || {};
             const analytics = result.squash_analytics || result.analytics || {};
             const matchControl = analytics.match_control || {};
+            const p1 = analytics.player1 || {};
+            const p2 = analytics.player2 || {};
+            const analysis = analytics.analysis || {};
+            
+            // Helper to convert px to feet
+            const pxToFt = (px) => ((px || 0) / 30).toFixed(1);
             
             // Get video name
             let videoName = result?.video_name || analyticsData?.filename || jobId;
             if (videoName.startsWith(jobId + '_')) {
                 videoName = videoName.substring(jobId.length + 1);
             }
-            // Clean up video name for display
             videoName = videoName.replace(/_/g, ' ').replace(/\.[^/.]+$/, '');
             
             // Get match control data
@@ -2219,25 +2224,79 @@
             const controlTier = matchControl.tier || '';
             const controlWinner = matchControl.winner || '';
             
+            // Get all metrics
+            const p1TDom = (p1.avg_t_dominance ?? p1.t_dominance ?? 0).toFixed(1);
+            const p2TDom = (p2.avg_t_dominance ?? p2.t_dominance ?? 0).toFixed(1);
+            const p1Scramble = pxToFt(p1.avg_scramble_score ?? p1.scramble_score ?? 0);
+            const p2Scramble = pxToFt(p2.avg_scramble_score ?? p2.scramble_score ?? 0);
+            const p1Running = pxToFt(p1.total_running_score ?? p1.running_score ?? 0);
+            const p2Running = pxToFt(p2.total_running_score ?? p2.running_score ?? 0);
+            const p1Bursts = Math.round(p1.total_attack_score ?? p1.attack_score ?? 0);
+            const p2Bursts = Math.round(p2.total_attack_score ?? p2.attack_score ?? 0);
+            const p1Pressure = (p1.pressure_pct ?? 0).toFixed(1);
+            const p2Pressure = (p2.pressure_pct ?? 0).toFixed(1);
+            const p1Fatigue = (p1.fatigue_score ?? 0).toFixed(1);
+            const p2Fatigue = (p2.fatigue_score ?? 0).toFixed(1);
+            
+            // Get winners for each metric
+            const tDomWinner = analysis.t_dominance?.winner || (parseFloat(p1TDom) > parseFloat(p2TDom) ? playerNames.player1 : playerNames.player2);
+            const scrambleWinner = parseFloat(p1Scramble) < parseFloat(p2Scramble) ? playerNames.player1 : playerNames.player2;
+            const runningWinner = parseFloat(p1Running) < parseFloat(p2Running) ? playerNames.player1 : playerNames.player2;
+            const pressureWinner = parseFloat(p1Pressure) > parseFloat(p2Pressure) ? playerNames.player1 : playerNames.player2;
+            const fatigueWinner = parseFloat(p1Fatigue) < parseFloat(p2Fatigue) ? playerNames.player1 : playerNames.player2;
+            
             // Build email content
             let subject = `${videoName} - Squash.AI Analysis`;
             let body = `Check out my squash match analysis!
 
-` +
-                       `Match: ${videoName}
+Match: ${videoName}
 `;
             
+            // Match Control section
             if (controlIndex) {
-                body += `Match Control Index: ${controlIndex} (${controlTier})
+                body += `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MATCH CONTROL INDEX: ${controlIndex}/100 (${controlTier})
+${controlWinner && controlWinner !== 'Tie' ? `Overall Advantage: ${controlWinner}` : 'Evenly Matched'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
-                if (controlWinner && controlWinner !== 'Tie') {
-                    body += `Advantage: ${controlWinner}
-`;
-                }
             }
             
+            // Detailed metrics
             body += `
-View full analysis: ${window.location.href}`;
+📊 MATCH STATISTICS
+${playerNames.player1} vs ${playerNames.player2}
+
+🎯 T-Dominance (court center control)
+   ${playerNames.player1}: ${p1TDom}%  |  ${playerNames.player2}: ${p2TDom}%
+   → ${tDomWinner} held the T more
+
+📍 Scramble Score (avg distance from T - lower is better)
+   ${playerNames.player1}: ${p1Scramble} ft  |  ${playerNames.player2}: ${p2Scramble} ft
+   → ${scrambleWinner} maintained better position
+
+🏃 Running Score (total distance covered)
+   ${playerNames.player1}: ${p1Running} ft  |  ${playerNames.player2}: ${p2Running} ft
+   → ${runningWinner} played more economically
+
+⚡ Burst Movements (explosive efforts)
+   ${playerNames.player1}: ${p1Bursts}  |  ${playerNames.player2}: ${p2Bursts}
+   → Higher = more high-intensity efforts
+
+🎾 Court Pressure (time in front)
+   ${playerNames.player1}: ${p1Pressure}%  |  ${playerNames.player2}: ${p2Pressure}%
+   → ${pressureWinner} applied more pressure
+
+💪 Fatigue Score (speed decline - lower is better)
+   ${playerNames.player1}: ${p1Fatigue}%  |  ${playerNames.player2}: ${p2Fatigue}%
+   → ${fatigueWinner} showed better conditioning
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+View full analysis with charts:
+${window.location.href}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Powered by Squash.AI 🎾`;
             
             // Open email client
             window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
