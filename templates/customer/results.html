@@ -1356,19 +1356,23 @@
                     const matchControl = analytics.match_control;
                     if (!matchControl) return '';
                     const tierClass = (matchControl.tier || '').toLowerCase().replace(' ', '-');
-                    const p1Name = p1.name || 'Player 1';
-                    const p2Name = p2.name || 'Player 2';
-                    const winnerName = matchControl.winner === 'Player 1' ? p1Name : 
-                                       matchControl.winner === 'Player 2' ? p2Name : matchControl.winner;
+                    const p1Name = playerNames.player1 || p1.name || 'Player 1';
+                    const p2Name = playerNames.player2 || p2.name || 'Player 2';
+                    const winnerPlayer = matchControl.winner; // Store which player won
+                    const winnerName = winnerPlayer === 'Player 1' ? p1Name : 
+                                       winnerPlayer === 'Player 2' ? p2Name : winnerPlayer;
                     return `
-                    <div class="match-control-card">
+                    <div class="match-control-card" data-winner="${winnerPlayer}">
                         <div class="match-control-title">Match Control Index</div>
                         <div class="match-control-score">${matchControl.index}</div>
                         <div class="match-control-winner">
                             <span class="tier-badge ${tierClass}">${matchControl.tier}</span>
-                            ${winnerName}
+                            <span class="match-control-winner-name">${winnerName}</span>
                         </div>
-                        <div class="match-control-summary">${matchControl.summary?.replace(/Player 1/g, p1Name).replace(/Player 2/g, p2Name) || ''}</div>
+                        <div class="match-control-summary">
+                            <span class="highlight-p1" style="color: inherit;">${p1Name}</span> and <span class="highlight-p2" style="color: inherit;">${p2Name}</span> - 
+                            ${matchControl.summary?.replace(/Player 1[^a-zA-Z]*/g, '').replace(/Player 2[^a-zA-Z]*/g, '').replace(/^\s*and\s*-\s*/, '') || ''}
+                        </div>
                     </div>`;
                 })()}
 
@@ -1717,6 +1721,16 @@
             // Update Match Summary highlights
             document.querySelectorAll('.highlight-p1').forEach(el => el.textContent = p1);
             document.querySelectorAll('.highlight-p2').forEach(el => el.textContent = p2);
+            
+            // Update Match Control card winner name
+            const matchControlCard = document.querySelector('.match-control-card');
+            if (matchControlCard) {
+                const winner = matchControlCard.dataset.winner;
+                const winnerNameEl = matchControlCard.querySelector('.match-control-winner-name');
+                if (winnerNameEl) {
+                    winnerNameEl.textContent = winner === 'Player 1' ? p1 : winner === 'Player 2' ? p2 : winner;
+                }
+            }
             
             // Get analytics for winner calculations
             const analytics = analyticsData?.result?.squash_analytics || analyticsData?.result?.analytics || {};
