@@ -2266,7 +2266,8 @@
         // Configuration for large file handling
         const USE_DIRECT_UPLOAD = true; // Enable direct-to-cloud upload with compression
         const COMPRESSION_THRESHOLD_MB = 100; // Compress files larger than 100MB
-        const LARGE_FILE_WARNING_MB = 500; // Warn users about very large files
+        const MAX_FILE_SIZE_MB = 1000; // Max 1GB after compression (Supabase limit)
+        const COMPRESSION_REQUIRED_ABOVE_MB = 800; // Files above this MUST compress successfully
         
         // FFmpeg instance for client-side compression
         let ffmpeg = null;
@@ -2440,12 +2441,28 @@
                 }
             }
             
-            // Check if compressed file is still very large
+            // Check if file size is within limits
             const finalSizeMB = fileToUpload.size / (1024 * 1024);
-            if (finalSizeMB > LARGE_FILE_WARNING_MB) {
+            const originalSizeMB = file.size / (1024 * 1024);
+            
+            // Reject files over max size
+            if (finalSizeMB > MAX_FILE_SIZE_MB) {
+                statusEl.innerHTML = `<span class="file-item-badge error">Too Large</span>`;
+                showError(
+                    `File is ${finalSizeMB.toFixed(0)}MB which exceeds the ${MAX_FILE_SIZE_MB}MB limit.\n\n` +
+                    `Please compress your video using HandBrake (free) before uploading.\n\n` +
+                    `Tip: Use 720p resolution and "Fast 720p30" preset for good quality at smaller size.`
+                );
+                return;
+            }
+            
+            // Warn about large files that compression couldn't reduce
+            if (originalSizeMB > COMPRESSION_REQUIRED_ABOVE_MB && finalSizeMB === originalSizeMB) {
                 const proceed = confirm(
-                    `This file is ${finalSizeMB.toFixed(0)}MB which is still quite large.\n\n` +
-                    `Upload may take a while. Continue?`
+                    `This ${finalSizeMB.toFixed(0)}MB file couldn't be compressed in your browser (too large for memory).\n\n` +
+                    `Upload will proceed but may take a while.\n\n` +
+                    `For faster uploads, compress locally using HandBrake first.\n\n` +
+                    `Continue anyway?`
                 );
                 if (!proceed) {
                     statusEl.innerHTML = `<span class="file-item-badge pending">Cancelled</span>`;
