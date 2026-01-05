@@ -821,12 +821,18 @@ def results_page(job_id):
         players_images = list(result_dir.glob("*_players.jpg"))
         og_image = f"/results/{job_id}/files/{players_images[0].name}" if players_images else None
     
+    # Get players_image_url for display (prefer Supabase URL)
+    players_image_url = None
+    if job.get('players_image_url'):
+        players_image_url = job.get('players_image_url')
+    
     return render_template('results.html', 
         job_id=job_id,
         og_title=clean_name,
         og_image=og_image,
         og_description="Squash match analysis powered by AI",
-        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', '')
+        clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', ''),
+        players_image_url=players_image_url
     )
 
 def load_job_from_disk(job_id):

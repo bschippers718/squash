@@ -1194,7 +1194,10 @@
             const filenameNoExt = (jobData.filename || '').replace(/\.[^/.]+$/, '');
             
             // Try multiple filename patterns as fallbacks
+            // Supabase URL (if available) - passed from server
+            const supabasePlayerImageUrl = '{{ players_image_url or "" }}';
             const framePaths = [
+                ...(supabasePlayerImageUrl ? [supabasePlayerImageUrl] : []),
                 `/results/${jobId}/files/${videoNameWithPrefix}_players.jpg`,
                 `/results/${jobId}/files/${jobId}_${videoName}_players.jpg`,
                 `/results/${jobId}/files/${jobId}_${filenameNoExt}_players.jpg`,
