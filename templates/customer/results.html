@@ -286,6 +286,13 @@
         
         .advantage-pct { font-weight: 700; color: var(--accent); }
         
+        .distance-conversion {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        
         .match-control-card {
             background: linear-gradient(135deg, var(--bg-card) 0%, rgba(52, 211, 153, 0.1) 100%);
             border: 2px solid var(--accent);
@@ -1442,12 +1449,16 @@
                             <div class="metric-bars">
                                 <div class="metric-player p1">
                                     <div class="metric-player-label player1-name">${playerNames.player1}</div>
-                                    <div class="metric-player-value">${pxToFt(p1Running)} ft</div>
+                                    <div class="metric-player-value">${pxToFt(p1Running)} ft
+                                        <div class="distance-conversion">${pxToMiles(p1Running)} mi / ${(pxToFt(p1Running) * 0.3048 / 1000).toFixed(2)} km</div>
+                                    </div>
                                     <div class="metric-bar-container"><div class="metric-bar p1" style="width: ${p1RunPct}%"></div></div>
                             </div>
                                 <div class="metric-player p2">
                                     <div class="metric-player-label player2-name">${playerNames.player2}</div>
-                                    <div class="metric-player-value">${pxToFt(p2Running)} ft</div>
+                                    <div class="metric-player-value">${pxToFt(p2Running)} ft
+                                        <div class="distance-conversion">${pxToMiles(p2Running)} mi / ${(pxToFt(p2Running) * 0.3048 / 1000).toFixed(2)} km</div>
+                                    </div>
                                     <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2RunPct}%"></div></div>
                                 </div>
                                 </div>
