@@ -269,6 +269,36 @@
             border-left: 3px solid var(--accent); margin-top: 15px;
         }
         
+        .tier-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 8px;
+        }
+        .tier-badge.contested { background: rgba(150, 150, 150, 0.3); color: #aaa; }
+        .tier-badge.slight-edge { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+        .tier-badge.controlled { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .tier-badge.dominated { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        
+        .advantage-pct { font-weight: 700; color: var(--accent); }
+        
+        .match-control-card {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(52, 211, 153, 0.1) 100%);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        .match-control-title { font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .match-control-score { font-size: 3rem; font-weight: 800; color: var(--accent); line-height: 1; }
+        .match-control-winner { font-size: 1.1rem; color: var(--text); margin-top: 8px; }
+        .match-control-summary { font-size: 0.9rem; color: var(--text-secondary); margin-top: 12px; line-height: 1.5; }
+        
         /* Fatigue Graph - Clean Line Chart */
         .fatigue-chart-wrapper {
             margin: 20px 0;
@@ -1321,6 +1351,25 @@
                         </div>
                         </div>
                 
+                <!-- Match Control Score -->
+                \${(() => {
+                    const matchControl = analytics.match_control;
+                    if (!matchControl) return '';
+                    const tierClass = (matchControl.tier || '').toLowerCase().replace(' ', '-');
+                    const winnerName = matchControl.winner === 'Player 1' ? p1 : 
+                                       matchControl.winner === 'Player 2' ? p2 : matchControl.winner;
+                    return `
+                    <div class="match-control-card">
+                        <div class="match-control-title">Match Control Index</div>
+                        <div class="match-control-score">\${matchControl.index}</div>
+                        <div class="match-control-winner">
+                            <span class="tier-badge \${tierClass}">\${matchControl.tier}</span>
+                            \${winnerName}
+                        </div>
+                        <div class="match-control-summary">\${matchControl.summary?.replace(/Player 1/g, p1).replace(/Player 2/g, p2) || ''}</div>
+                    </div>`;
+                })()}
+
                 <!-- Performance Metrics -->
                 <div class="section-card">
                     <h2 class="section-title">📈 Performance Metrics</h2>
@@ -1344,7 +1393,11 @@
                                     <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2TDomPct}%"></div></div>
                     </div>
                     </div>
-                            <div class="analysis-text">${analysis.t_dominance?.summary || 'Analysis not available.'}</div>
+                            <div class="analysis-text">
+                                ${analysis.t_dominance?.tier ? `<span class="tier-badge ${(analysis.t_dominance.tier || '').toLowerCase().replace(' ', '-')}">${analysis.t_dominance.tier}</span>` : ''}
+                                ${analysis.t_dominance?.advantage_pct ? `<span class="advantage-pct">+${analysis.t_dominance.advantage_pct}%</span> ` : ''}
+                                ${analysis.t_dominance?.summary || 'Analysis not available.'}
+                            </div>
                 </div>
 
                         <!-- Scramble -->
@@ -1366,7 +1419,11 @@
                                     <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2ScramblePct}%"></div></div>
                                 </div>
                                 </div>
-                            <div class="analysis-text">${analysis.scramble?.summary || 'Analysis not available.'}</div>
+                            <div class="analysis-text">
+                                ${analysis.scramble?.tier ? `<span class="tier-badge ${(analysis.scramble.tier || '').toLowerCase().replace(' ', '-')}">${analysis.scramble.tier}</span>` : ''}
+                                ${analysis.scramble?.advantage_pct ? `<span class="advantage-pct">+${analysis.scramble.advantage_pct}%</span> ` : ''}
+                                ${analysis.scramble?.summary || 'Analysis not available.'}
+                            </div>
                         </div>
 
                         <!-- Running -->
@@ -1388,7 +1445,11 @@
                                     <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2RunPct}%"></div></div>
                                 </div>
                                 </div>
-                            <div class="analysis-text">${analysis.running?.summary || 'Analysis not available.'}</div>
+                            <div class="analysis-text">
+                                ${analysis.running?.tier ? `<span class="tier-badge ${(analysis.running.tier || '').toLowerCase().replace(' ', '-')}">${analysis.running.tier}</span>` : ''}
+                                ${analysis.running?.advantage_pct ? `<span class="advantage-pct">+${analysis.running.advantage_pct}%</span> ` : ''}
+                                ${analysis.running?.summary || 'Analysis not available.'}
+                            </div>
                         </div>
 
                         <!-- Attack -->
