@@ -631,7 +631,7 @@ def process_video_from_cloud(job_id, storage_path, sport='squash'):
                 status='completed',
                 progress=100,
                 message='Processing complete!',
-                analytics=result.get('analytics'),
+                analytics=result.get('squash_analytics', {}),
                 completed_at=True
             )
             
@@ -650,7 +650,7 @@ def process_video_from_cloud(job_id, storage_path, sport='squash'):
                         # Auto-save to matches
                         from supabase_client import save_match, check_match_saved
                         if not check_match_saved(job_id, user_id):
-                            analytics = result.get('analytics', {})
+                            analytics = result.get('squash_analytics', {})
                             p1_name = analytics.get('player1', {}).get('name', 'Player 1')
                             p2_name = analytics.get('player2', {}).get('name', 'Player 2')
                             
