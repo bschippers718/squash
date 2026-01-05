@@ -481,6 +481,7 @@
             .auth-btn { padding: 6px 12px; font-size: 0.8rem; }
             .new-upload-btn { padding: 8px 14px; font-size: 0.8rem; }
             .save-match-btn { padding: 6px 12px; font-size: 0.8rem; }
+            .email-results-btn { padding: 6px 12px; font-size: 0.8rem; }
             
             .page-header h1 { font-size: 1.5rem; }
             .page-header p { font-size: 0.85rem; }
@@ -542,6 +543,7 @@
                 white-space: nowrap;
             }
             .save-match-btn { padding: 5px 10px; font-size: 0.75rem; }
+            .email-results-btn { padding: 5px 10px; font-size: 0.75rem; }
             .nav-link { font-size: 0.75rem; padding: 5px 10px; }
             
             .page-header { margin-bottom: 20px; }
@@ -711,6 +713,26 @@
             color: var(--accent);
             border: 1px solid var(--accent);
         }
+        .email-results-btn {
+            padding: 8px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+        .email-results-btn:hover {
+            background: var(--bg-card);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
         .auth-hidden { display: none !important; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -737,6 +759,11 @@
                 <button id="save-match-btn" class="save-match-btn auth-hidden" onclick="saveMatch()">
                     <span id="save-btn-icon">💾</span>
                     <span id="save-btn-text">Save Match</span>
+                </button>
+                <!-- Email Results button (always shown) -->
+                <button id="email-results-btn" class="email-results-btn" onclick="emailResults()">
+                    <span>📧</span>
+                    <span>Email Results</span>
                 </button>
                 <!-- Auth buttons (shown when NOT logged in) -->
                 <div id="auth-buttons" class="auth-hidden">
@@ -2171,6 +2198,49 @@
                     if (btnText) btnText.textContent = 'Save Match';
                 }
             }
+        }
+        
+        function emailResults() {
+            // Get data from loaded analytics
+            const result = analyticsData?.result || {};
+            const analytics = result.squash_analytics || result.analytics || {};
+            const matchControl = analytics.match_control || {};
+            
+            // Get video name
+            let videoName = result?.video_name || analyticsData?.filename || jobId;
+            if (videoName.startsWith(jobId + '_')) {
+                videoName = videoName.substring(jobId.length + 1);
+            }
+            // Clean up video name for display
+            videoName = videoName.replace(/_/g, ' ').replace(/\.[^/.]+$/, '');
+            
+            // Get match control data
+            const controlIndex = matchControl.index || '';
+            const controlTier = matchControl.tier || '';
+            const controlWinner = matchControl.winner || '';
+            
+            // Build email content
+            let subject = `${videoName} - Squash.AI Analysis`;
+            let body = `Check out my squash match analysis!
+
+` +
+                       `Match: ${videoName}
+`;
+            
+            if (controlIndex) {
+                body += `Match Control Index: ${controlIndex} (${controlTier})
+`;
+                if (controlWinner && controlWinner !== 'Tie') {
+                    body += `Advantage: ${controlWinner}
+`;
+                }
+            }
+            
+            body += `
+View full analysis: ${window.location.href}`;
+            
+            // Open email client
+            window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         }
         
         async function saveMatch() {

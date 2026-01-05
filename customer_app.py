@@ -826,11 +826,23 @@ def results_page(job_id):
     if job.get('players_image_url'):
         players_image_url = job.get('players_image_url')
     
+    # Extract match control for dynamic OG description
+    analytics = job.get('result', {}).get('squash_analytics', {})
+    match_control = analytics.get('match_control', {})
+    control_index = match_control.get('index', '')
+    control_tier = match_control.get('tier', '')
+    control_winner = match_control.get('winner', '')
+    
+    if control_index:
+        og_description = f"Match Control: {control_index} | {control_tier} - {control_winner}"
+    else:
+        og_description = "AI-powered squash match analysis"
+    
     return render_template('results.html', 
         job_id=job_id,
         og_title=clean_name,
         og_image=og_image,
-        og_description="Squash match analysis powered by AI",
+        og_description=og_description,
         clerk_publishable_key=os.environ.get('CLERK_PUBLISHABLE_KEY', ''),
         players_image_url=players_image_url
     )
