@@ -1267,6 +1267,65 @@
         .file-item-badge.processing { background: rgba(255, 165, 2, 0.2); color: #ffa502; }
         .file-item-badge.completed { background: rgba(0, 255, 135, 0.2); color: var(--primary); }
         .file-item-badge.error { background: rgba(255, 51, 102, 0.2); color: var(--secondary); }
+        .file-item-badge.info { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
+        .file-item-badge.warning { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+        .file-item-badge.success { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+
+        /* Multi-stage progress display */
+        .stage-progress {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 200px;
+        }
+        .stage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+        .stage-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        .stage-step {
+            background: var(--bg-elevated);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .stage-step.active {
+            background: var(--primary);
+            color: var(--bg-dark);
+        }
+        .stage-name {
+            color: var(--text-secondary);
+        }
+        .stage-percent {
+            font-weight: 700;
+            color: var(--primary);
+            min-width: 45px;
+            text-align: right;
+        }
+        .stage-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .stage-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .stage-bar-fill.compress { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+        .stage-bar-fill.upload { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
+        .stage-bar-fill.process { background: linear-gradient(90deg, var(--primary), #00cc6a); }
 
         .remove-file {
             width: 36px;
@@ -2402,6 +2461,34 @@
             }
         });
 
+        // Helper to render stage progress UI
+        function renderStageProgress(index, stage, stageName, percent, totalStages = 3) {
+            const stageColors = {
+                'compress': 'compress',
+                'upload': 'upload', 
+                'process': 'process'
+            };
+            const stageIcons = {
+                'compress': '🗜️',
+                'upload': '☁️',
+                'process': '🔍'
+            };
+            return `
+                <div class="stage-progress">
+                    <div class="stage-header">
+                        <div class="stage-label">
+                            <span class="stage-step active">${stage}/${totalStages}</span>
+                            <span class="stage-name">${stageIcons[stageName] || '⏳'} ${stageName === 'compress' ? 'Compressing' : stageName === 'upload' ? 'Uploading' : 'Processing'}</span>
+                        </div>
+                        <span class="stage-percent" id="percent-${index}">${percent}%</span>
+                    </div>
+                    <div class="stage-bar">
+                        <div class="stage-bar-fill ${stageColors[stageName] || 'upload'}" id="progress-${index}" style="width: ${percent}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
         // Direct upload function (compresses large files, uploads to Supabase Storage)
         async function uploadFileDirect(file, index) {
             const statusEl = document.getElementById(`status-${index}`);
@@ -2409,12 +2496,14 @@
             
             let fileToUpload = file;
             
-            // Step 1: Compress large files
-            if (fileSizeMB > COMPRESSION_THRESHOLD_MB) {
-                statusEl.innerHTML = `
-                    <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}" style="background: var(--accent);"></div></div>
-                    <span style="font-size: 0.85rem; color: var(--accent); font-weight: 600; min-width: 100px;" id="percent-${index}">Loading compressor...</span>
-                `;
+            // Determine total stages (2 if no compression needed, 3 if compression)
+            const needsCompression = fileSizeMB > COMPRESSION_THRESHOLD_MB && fileSizeMB <= MAX_BROWSER_COMPRESSION_MB;
+            const totalStages = needsCompression ? 3 : 2;
+            let currentStage = 1;
+            
+            // Step 1: Compress large files (if needed)
+            if (needsCompression) {
+                statusEl.innerHTML = renderStageProgress(index, 1, 'compress', 0, totalStages);
                 
                 const progressEl = document.getElementById(`progress-${index}`);
                 const percentEl = document.getElementById(`percent-${index}`);
@@ -2423,11 +2512,10 @@
                     // Pre-load FFmpeg
                     const loaded = await loadFFmpeg();
                     if (loaded) {
-                        percentEl.textContent = 'Compressing...';
-                        
                         fileToUpload = await compressVideo(file, (progress) => {
-                            if (progressEl) progressEl.style.width = progress + '%';
-                            if (percentEl) percentEl.textContent = `Compressing ${progress}%`;
+                            const pct = Math.round(progress);
+                            if (progressEl) progressEl.style.width = pct + '%';
+                            if (percentEl) percentEl.textContent = pct + '%';
                         });
                         
                         const newSizeMB = (fileToUpload.size / (1024 * 1024)).toFixed(1);
@@ -2439,6 +2527,11 @@
                     console.error('Compression error:', e);
                     // Continue with original file
                 }
+                currentStage = 2;
+            } else if (fileSizeMB > COMPRESSION_THRESHOLD_MB) {
+                // File too large for browser compression - show notice
+                statusEl.innerHTML = `<span class="file-item-badge warning">⚡ Large file - direct upload</span>`;
+                await new Promise(r => setTimeout(r, 1500));
             }
             
             // Check if file size is within limits
@@ -2470,14 +2563,13 @@
                 }
             }
             
-            statusEl.innerHTML = `
-                <div class="file-item-progress"><div class="file-item-progress-fill" id="progress-${index}"></div></div>
-                <span style="font-size: 0.85rem; color: var(--primary); font-weight: 600; min-width: 45px;" id="percent-${index}">0%</span>
-            `;
+            // Show upload stage
+            const uploadStageNum = needsCompression ? 2 : 1;
+            statusEl.innerHTML = renderStageProgress(index, uploadStageNum, 'upload', 0, totalStages);
 
             try {
                 // Get Clerk token for authentication
-                console.log('Step 1: Getting auth token...');
+                console.log('Getting auth token...');
                 const headers = { 'Content-Type': 'application/json' };
                 if (clerkLoaded && Clerk.session) {
                     try {
@@ -2549,8 +2641,8 @@
                 uploadedJobs.push({ jobId, name: file.name, index });
                 console.log('Upload successful! Starting progress polling...');
                 
-                // Poll for processing progress
-                pollProgress(jobId, index);
+                // Poll for processing progress (pass totalStages for correct stage display)
+                pollProgress(jobId, index, totalStages);
 
             } catch (error) {
                 console.error('Upload error:', error);
@@ -2681,10 +2773,14 @@
             }
         }
 
-        function pollProgress(jobId, index) {
+        function pollProgress(jobId, index, totalStages = 2) {
             const statusEl = document.getElementById(`status-${index}`);
-            const progressEl = document.getElementById(`progress-${index}`);
-            const percentEl = document.getElementById(`percent-${index}`);
+            
+            // Show processing stage
+            statusEl.innerHTML = renderStageProgress(index, totalStages, 'process', 0, totalStages);
+            
+            let progressEl = document.getElementById(`progress-${index}`);
+            let percentEl = document.getElementById(`percent-${index}`);
 
             const eventSource = new EventSource(`/stream/${jobId}`);
 
@@ -2693,11 +2789,14 @@
 
                 if (data.error) {
                     eventSource.close();
-                    statusEl.innerHTML = `<span class="file-item-badge error">Error</span>`;
+                    statusEl.innerHTML = `<span class="file-item-badge error">❌ Error</span>`;
                     return;
                 }
 
                 const progress = data.progress || 0;
+                // Re-get elements in case they were replaced
+                progressEl = document.getElementById(`progress-${index}`);
+                percentEl = document.getElementById(`percent-${index}`);
                 if (progressEl) progressEl.style.width = progress + '%';
                 if (percentEl) percentEl.textContent = Math.round(progress) + '%';
 
@@ -2710,20 +2809,24 @@
 
                 if (data.status === 'failed') {
                     eventSource.close();
-                    statusEl.innerHTML = `<span class="file-item-badge error">Failed</span>`;
+                    statusEl.innerHTML = `<span class="file-item-badge error">❌ Failed</span>`;
                 }
             };
 
             eventSource.onerror = () => {
                 eventSource.close();
-                fallbackPoll(jobId, index);
+                fallbackPoll(jobId, index, totalStages);
             };
         }
 
-        async function fallbackPoll(jobId, index) {
+        async function fallbackPoll(jobId, index, totalStages = 2) {
             const statusEl = document.getElementById(`status-${index}`);
-            const progressEl = document.getElementById(`progress-${index}`);
-            const percentEl = document.getElementById(`percent-${index}`);
+            
+            // Ensure processing stage is shown
+            statusEl.innerHTML = renderStageProgress(index, totalStages, 'process', 0, totalStages);
+            
+            let progressEl = document.getElementById(`progress-${index}`);
+            let percentEl = document.getElementById(`percent-${index}`);
 
             const checkStatus = async () => {
                 try {
@@ -2731,6 +2834,9 @@
                     const data = await response.json();
 
                     const progress = data.progress || 0;
+                    // Re-get elements in case they were replaced
+                    progressEl = document.getElementById(`progress-${index}`);
+                    percentEl = document.getElementById(`percent-${index}`);
                     if (progressEl) progressEl.style.width = progress + '%';
                     if (percentEl) percentEl.textContent = Math.round(progress) + '%';
 
@@ -2742,7 +2848,7 @@
                     }
 
                     if (data.status === 'failed') {
-                        statusEl.innerHTML = `<span class="file-item-badge error">Failed</span>`;
+                        statusEl.innerHTML = `<span class="file-item-badge error">❌ Failed</span>`;
                         return;
                     }
 
