@@ -14,10 +14,10 @@
     {% if og_image.startswith('http') %}
     <meta property="og:image" content="{{ og_image }}">
     {% else %}
-    <meta property="og:image" content="{{ request.url_root[:-1] }}{{ og_image }}">
+    <meta property="og:image" content="{{ request.url_root[:-1] | replace('http://', 'https://') }}{{ og_image }}">
     {% endif %}
     {% endif %}
-    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:url" content="{{ request.url | replace('http://', 'https://') }}">
     <meta property="og:site_name" content="Squash.AI">
     
     <!-- Twitter Card -->
@@ -28,7 +28,7 @@
     {% if og_image.startswith('http') %}
     <meta name="twitter:image" content="{{ og_image }}">
     {% else %}
-    <meta name="twitter:image" content="{{ request.url_root[:-1] }}{{ og_image }}">
+    <meta name="twitter:image" content="{{ request.url_root[:-1] | replace('http://', 'https://') }}{{ og_image }}">
     {% endif %}
     {% endif %}
     

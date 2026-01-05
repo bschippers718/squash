@@ -1117,6 +1117,28 @@
             font-size: 0.8rem;
         }
 
+        .upload-tip {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: rgba(0, 255, 135, 0.08);
+            border: 1px solid rgba(0, 255, 135, 0.2);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: left;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .upload-tip strong {
+            color: var(--primary);
+        }
+        .tip-subtle {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
         /* Sport Selection */
         .sport-selection {
             margin-top: 32px;
@@ -2060,6 +2082,7 @@
                     <button type="button" class="browse-btn">Choose Video</button>
                 <input type="file" class="file-input" id="fileInput" accept=".mp4,.mov,.avi,.mkv,.m4v,.webm" multiple>
                     <p class="file-types">Supports MP4, MOV, AVI, MKV, M4V, WebM</p>
+                    <p class="upload-tip">💡 <strong>Pro tip:</strong> Upload individual games for faster processing! Full matches work too if under 900MB <span class="tip-subtle">(Ben's gotta pay for all this hosting... 😅)</span></p>
             </div>
 
             <div class="sport-selection">

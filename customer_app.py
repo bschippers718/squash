@@ -839,6 +839,24 @@ def results_page(job_id):
     og_image = None
     players_image_url = job.get('players_image_url')
     
+    # If not in job, try to fetch from Supabase
+    if not players_image_url:
+        try:
+            from supabase_client import get_supabase_client, get_match_by_job_id
+            # Try matches table first
+            match = get_match_by_job_id(job_id)
+            if match and match.get('players_image_url'):
+                players_image_url = match.get('players_image_url')
+            else:
+                # Try job_queue
+                supabase = get_supabase_client()
+                if supabase:
+                    result = supabase.table('job_queue').select('players_image_url').eq('job_id', job_id).execute()
+                    if result.data and result.data[0].get('players_image_url'):
+                        players_image_url = result.data[0].get('players_image_url')
+        except Exception as e:
+            print(f"Error fetching players_image_url: {e}")
+    
     if players_image_url:
         # Use Supabase URL (works for social sharing)
         og_image = players_image_url
