@@ -787,8 +787,8 @@
                 scramble_desc: 'Average distance from the T — lower is better. High scramble means a player is being pushed around.',
                 running: 'Running Score',
                 running_desc: 'Total distance covered during the match — shows who is working harder physically.',
-                attack: 'Attack Score',
-                attack_desc: 'Number of aggressive, high-velocity shots. Higher = more aggressive play, taking initiative. Lower = more defensive, retrieving shots. The player with more attacks is typically shooting more and taking more risk.',
+                attack: 'Burst Movements',
+                attack_desc: 'High-intensity explosive movements detected. Higher = more bursts of speed and effort. This could be attacking plays OR defensive scrambles — either way, more bursts means working harder physically.',
                 rail: 'Tight Rails',
                 rail_desc: 'How close shots are to the side wall — tighter rails are harder to retrieve.',
                 court_pressure: 'Court Pressure',
@@ -983,7 +983,7 @@
             
             // Attack Analysis section
             if (totalAttacks > 0) {
-                summary += `<br><br><strong>⚡ Attacking Play:</strong> <span class="highlight-p1">${attackWinner}</span> generated <strong>${attackWinnerVal}</strong> attacking shots while <span class="highlight-p2">${attackLoser}</span> produced <strong>${attackLoserVal}</strong>. <span class="highlight-p1">${attackWinner}</span> accounted for <strong>${attackPercent}%</strong> of all attacking play.`;
+                summary += `<br><br><strong>💥 Physical Intensity:</strong> <span class="highlight-p1">${attackWinner}</span> had <strong>${attackWinnerVal}</strong> burst movements while <span class="highlight-p2">${attackLoser}</span> had <strong>${attackLoserVal}</strong>. This suggests <span class="highlight-p1">${attackWinner}</span> was working harder with <strong>${attackPercent}%</strong> of all high-intensity efforts.`;
                 
                 // Attack efficiency insight
                 if (efficiencyRatio >= 1.5 && p1Running > 0 && p2Running > 0) {
@@ -1472,7 +1472,7 @@
                         <!-- Attack -->
                         <div class="metric-card">
                             <div class="metric-header">
-                                <span class="metric-name">⚡ ${labels.attack}</span>
+                                <span class="metric-name">💥 ${labels.attack}</span>
                                 <span class="metric-winner ${getWinnerClass(p1Attacks, p2Attacks)}" id="attackWinner">${getWinnerName(p1Attacks, p2Attacks)}</span>
                                 </div>
                             <p class="metric-desc">${labels.attack_desc}</p>
@@ -1488,7 +1488,7 @@
                                     <div class="metric-bar-container"><div class="metric-bar p2" style="width: ${p2AttackPct}%"></div></div>
                                 </div>
                                 </div>
-                            <div class="analysis-text">${analysis.attack?.summary || 'Analysis not available.'}</div>
+                            <div class="analysis-text">${analysis.burst_movements?.summary || analysis.attack?.summary || 'Analysis not available.'}</div>
                         </div>
 
                         <!-- Tight Rails (Coming Soon) -->

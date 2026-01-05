@@ -1225,9 +1225,9 @@ def analyze_performance_decay(frames_data, video_width, video_height, fps):
         analysis.append("Player 2 is losing T control in the second half - they're being pushed out of position more.")
     
     if p1_decay['attack_rate'] < -25:
-        analysis.append("Player 1's attack rate has dropped significantly - they may be playing more conservatively or lacking energy.")
+        analysis.append("Player 1's burst movement rate has dropped significantly - they may be tiring or pacing themselves.")
     if p2_decay['attack_rate'] < -25:
-        analysis.append("Player 2's attack rate has dropped significantly - they may be playing more conservatively or lacking energy.")
+        analysis.append("Player 2's burst movement rate has dropped significantly - they may be tiring or pacing themselves.")
     
     if not analysis:
         analysis.append("Both players are maintaining consistent performance throughout the match.")
@@ -1504,11 +1504,11 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
     # Attack analysis
     attack_analysis = ""
     if p1_attacks > p2_attacks * 1.15:
-        attack_analysis = "Player 1 is more aggressive, generating more pace and pressure with attacking shots."
+        attack_analysis = "Player 1 had more burst movements, indicating higher physical intensity — whether attacking or scrambling defensively."
     elif p2_attacks > p1_attacks * 1.15:
-        attack_analysis = "Player 2 is more aggressive, generating more pace and pressure with attacking shots."
+        attack_analysis = "Player 2 had more burst movements, indicating higher physical intensity — whether attacking or scrambling defensively."
     else:
-        attack_analysis = "Both players are showing similar levels of aggression in their shot-making."
+        attack_analysis = "Both players showed similar burst movement counts, indicating matched physical intensity levels."
     
     # Match duration
     duration_seconds = total_frames / fps if fps > 0 else 0
@@ -1579,6 +1579,16 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
     # Analyze fatigue (speed decline over time)
     fatigue = analyze_fatigue(frames_data, video_width, video_height, fps)
     
+    # Calculate Match Control Index
+    match_control = calculate_match_control(
+        p1_t_dominance, p2_t_dominance,
+        p1_avg_dist, p2_avg_dist,
+        p1_total_dist, p2_total_dist,
+        p1_attacks, p2_attacks,
+        court_pressure['player1']['pressure_pct'],
+        court_pressure['player2']['pressure_pct']
+    )
+    
     return {
         'sport': sport,
         'camera_angle': camera_angle,
@@ -1640,20 +1650,26 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
             'scramble': {
                 'summary': scramble_analysis,
                 'winner': 'Player 2' if p1_avg_dist > p2_avg_dist else 'Player 1',
-                'ratio': round(max(p1_avg_dist, p2_avg_dist) / max(min(p1_avg_dist, p2_avg_dist), 1), 2)
+                'ratio': round(max(p1_avg_dist, p2_avg_dist) / max(min(p1_avg_dist, p2_avg_dist), 1), 2),
+                'tier': get_metric_tier(((p1_avg_dist - p2_avg_dist) / max(p1_avg_dist, p2_avg_dist, 1)) * 100 if max(p1_avg_dist, p2_avg_dist) > 0 else 0),
+                'advantage_pct': round(abs(p1_avg_dist - p2_avg_dist) / max(p1_avg_dist, p2_avg_dist, 1) * 100, 1) if max(p1_avg_dist, p2_avg_dist) > 0 else 0
             },
             'running': {
                 'summary': running_analysis,
                 'harder_worker': 'Player 1' if p1_total_dist > p2_total_dist else 'Player 2',
-                'ratio': round(max(p1_total_dist, p2_total_dist) / max(min(p1_total_dist, p2_total_dist), 1), 2)
+                'ratio': round(max(p1_total_dist, p2_total_dist) / max(min(p1_total_dist, p2_total_dist), 1), 2),
+                'tier': get_metric_tier(((p1_total_dist - p2_total_dist) / max(p1_total_dist, p2_total_dist, 1)) * 100 if max(p1_total_dist, p2_total_dist) > 0 else 0),
+                'advantage_pct': round(abs(p1_total_dist - p2_total_dist) / max(p1_total_dist, p2_total_dist, 1) * 100, 1) if max(p1_total_dist, p2_total_dist) > 0 else 0
             },
             't_dominance': {
                 'summary': t_analysis,
-                'controller': 'Player 1' if p1_t_dominance > p2_t_dominance else 'Player 2'
+                'controller': 'Player 1' if p1_t_dominance > p2_t_dominance else 'Player 2',
+                'tier': get_metric_tier(p1_t_dominance - p2_t_dominance),
+                'advantage_pct': round(abs(p1_t_dominance - p2_t_dominance), 1)
             },
-            'attack': {
+            'burst_movements': {
                 'summary': attack_analysis,
-                'more_aggressive': 'Player 1' if p1_attacks > p2_attacks else 'Player 2'
+                'higher_intensity': 'Player 1' if p1_attacks > p2_attacks else 'Player 2'
             },
             'tight_rails': tight_rails['analysis'],
             'court_pressure': court_pressure['analysis'],
@@ -1669,7 +1685,8 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
         'zone_analysis': zone_analysis,
         'court_pressure': court_pressure,
         'performance_decay': performance_decay,
-        'fatigue': fatigue
+        'fatigue': fatigue,
+        'match_control': match_control
     }
 
 def generate_match_insights(p1_scramble, p2_scramble, p1_running, p2_running, 
@@ -1736,6 +1753,102 @@ def generate_match_insights(p1_scramble, p2_scramble, p1_running, p2_running,
         })
     
     return insights
+
+def calculate_match_control(p1_t_dom, p2_t_dom, p1_scramble, p2_scramble, 
+                            p1_running, p2_running, p1_attacks, p2_attacks,
+                            p1_pressure, p2_pressure):
+    """
+    Calculate a composite Match Control Index (0-100) and tier.
+    
+    Weights:
+    - T-Dominance: 40% (most important for court control)
+    - Scramble (lower=better): 25% (efficiency of movement)
+    - Court Pressure: 20% (who's forcing opponent back)
+    - Attack Rate: 15% (aggression)
+    """
+    
+    # Calculate individual advantages (positive = Player 2 advantage)
+    t_dom_diff = p2_t_dom - p1_t_dom  # Higher is better
+    
+    # Scramble: lower is better, so invert
+    if p1_scramble > 0 and p2_scramble > 0:
+        scramble_diff = ((p1_scramble - p2_scramble) / max(p1_scramble, p2_scramble)) * 100
+    else:
+        scramble_diff = 0
+    
+    # Running: doesn't directly indicate advantage, but can be weighted with context
+    running_diff = 0  # Neutral for now
+    
+    # Pressure: higher is better
+    pressure_diff = p2_pressure - p1_pressure
+    
+    # Attack: higher is better
+    total_attacks = p1_attacks + p2_attacks
+    if total_attacks > 0:
+        attack_diff = ((p2_attacks - p1_attacks) / total_attacks) * 100
+    else:
+        attack_diff = 0
+    
+    # Weighted composite (positive = P2 advantage)
+    composite = (
+        t_dom_diff * 0.40 +          # T-dominance
+        scramble_diff * 0.25 +        # Scramble efficiency  
+        pressure_diff * 0.20 +        # Court pressure
+        attack_diff * 0.15            # Attack rate
+    )
+    
+    # Convert to index (50 = even, higher = P2 advantage, lower = P1 advantage)
+    # Clamp between 20-80 for reasonable range
+    index = max(20, min(80, 50 + composite))
+    
+    # Determine winner and tier
+    advantage = abs(index - 50)
+    
+    if advantage < 3:
+        tier = "Contested"
+        winner = "Even"
+    elif advantage < 8:
+        tier = "Slight edge"
+        winner = "Player 2" if index > 50 else "Player 1"
+    elif advantage < 15:
+        tier = "Controlled"
+        winner = "Player 2" if index > 50 else "Player 1"
+    else:
+        tier = "Dominated"
+        winner = "Player 2" if index > 50 else "Player 1"
+    
+    # Generate summary
+    winner_name = winner
+    loser_name = "Player 1" if winner == "Player 2" else "Player 2" if winner == "Player 1" else None
+    
+    if winner == "Even":
+        summary = "This match was tightly contested with neither player establishing clear control."
+    elif tier == "Slight edge":
+        summary = f"{winner_name} held a slight edge throughout, controlling the T and forcing {loser_name} into more defensive positions."
+    elif tier == "Controlled":
+        summary = f"{winner_name} controlled the match with superior court positioning, limiting {loser_name}'s attacking opportunities."
+    else:
+        summary = f"{winner_name} dominated the match, consistently controlling the T and forcing {loser_name} into difficult retrieving positions."
+    
+    return {
+        'index': round(index),
+        'tier': tier,
+        'winner': winner,
+        'summary': summary
+    }
+
+
+def get_metric_tier(diff_pct):
+    """Determine tier based on percentage difference."""
+    if abs(diff_pct) < 3:
+        return "Contested"
+    elif abs(diff_pct) < 8:
+        return "Slight edge"
+    elif abs(diff_pct) < 15:
+        return "Controlled"
+    else:
+        return "Dominated"
+
 
 def format_distance(pixels, video_width=1920, sport='squash'):
     """
