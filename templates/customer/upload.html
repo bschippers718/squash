@@ -2325,7 +2325,8 @@
         // Configuration for large file handling
         const USE_DIRECT_UPLOAD = true; // Enable direct-to-cloud upload with compression
         const COMPRESSION_THRESHOLD_MB = 100; // Compress files larger than 100MB
-        const MAX_FILE_SIZE_MB = 1000; // Max 1GB after compression (Supabase limit)
+        const MAX_BROWSER_COMPRESSION_MB = 800; // Skip browser compression for files larger than 800MB (memory limits)
+        const MAX_FILE_SIZE_MB = 5000; // Max 5GB (Supabase Pro limit)
         const COMPRESSION_REQUIRED_ABOVE_MB = 800; // Files above this MUST compress successfully
         
         // FFmpeg instance for client-side compression
