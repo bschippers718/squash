@@ -1464,15 +1464,9 @@ def analyze_squash_match(detection_data, sport='squash', camera_angle='back'):
         p1_t_dominance = (player1_stats['frames_closer_to_t'] / frames_with_both_players) * 100
         p2_t_dominance = (player2_stats['frames_closer_to_t'] / frames_with_both_players) * 100
     
-    # Attack Score - prefer ball-nearby attacks if available, else use velocity-based
-    if player1_stats['attack_with_ball_nearby'] > 0 or player2_stats['attack_with_ball_nearby'] > 0:
-        # Use improved attack detection
-        p1_attacks = player1_stats['attack_with_ball_nearby']
-        p2_attacks = player2_stats['attack_with_ball_nearby']
-    else:
-        # Fallback to velocity-based detection
-        p1_attacks = player1_stats['high_velocity_shots']
-        p2_attacks = player2_stats['high_velocity_shots']
+    # Burst Movements - use velocity-based detection (ball tracking not reliable enough yet)
+    p1_attacks = player1_stats['high_velocity_shots']
+    p2_attacks = player2_stats['high_velocity_shots']
     
     # Determine who is scrambling more
     scramble_analysis = ""
