@@ -1138,6 +1138,25 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        
+        /* Desktop/Mobile text visibility */
+        .desktop-only { display: inline; }
+        .mobile-only { display: none; }
+        
+        /* Upload warning for mobile */
+        .upload-warning {
+            display: none;
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.4);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: #fbbf24;
+            text-align: center;
+        }
+        .upload-warning.visible { display: block; }
+        .upload-warning-icon { margin-right: 8px; }
 
         /* Sport Selection */
         .sport-selection {
@@ -1729,14 +1748,22 @@
             }
             
             .browse-btn {
-                padding: 12px 24px;
-                font-size: 0.9rem;
+                padding: 16px 32px;
+                font-size: 1rem;
+                min-height: 48px;
+                width: 100%;
+                max-width: 280px;
             }
             
             .submit-btn {
-                padding: 16px;
-                font-size: 1rem;
+                padding: 18px;
+                font-size: 1.1rem;
+                min-height: 52px;
             }
+            
+            /* Hide desktop tip, show mobile tip */
+            .upload-tip .desktop-only { display: none; }
+            .upload-tip .mobile-only { display: inline; }
             
             .recent-section {
                 padding: 60px 16px;
@@ -2082,7 +2109,11 @@
                     <button type="button" class="browse-btn">Choose Video</button>
                 <input type="file" class="file-input" id="fileInput" accept=".mp4,.mov,.avi,.mkv,.m4v,.webm" multiple>
                     <p class="file-types">Supports MP4, MOV, AVI, MKV, M4V, WebM</p>
-                    <p class="upload-tip">💡 <strong>Pro tip:</strong> Upload individual games for faster processing! Full matches work too if under 900MB <span class="tip-subtle">(Ben's gotta pay for all this hosting... 😅)</span></p>
+                    <p class="upload-tip">💡 <strong>Pro tip:</strong> <span class="desktop-only">Upload individual games for faster processing! Full matches work too if under 900MB <span class="tip-subtle">(Ben's gotta pay for all this hosting... 😅)</span></span><span class="mobile-only">One game at a time works best! 🎾</span></p>
+                    <div class="upload-warning" id="uploadWarning">
+                        <span class="upload-warning-icon">📱</span>
+                        <strong>Keep this screen open</strong> while uploading! Locking your phone or switching apps may interrupt the upload.
+                    </div>
             </div>
 
             <div class="sport-selection">
@@ -2469,6 +2500,13 @@
             }
 
             if (selectedFiles.length === 0) return;
+
+            // Show upload warning on mobile devices
+            const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const uploadWarning = document.getElementById('uploadWarning');
+            if (isMobile && uploadWarning) {
+                uploadWarning.classList.add('visible');
+            }
 
             submitBtn.disabled = true;
             uploadedJobs = [];
